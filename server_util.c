@@ -1,5 +1,6 @@
 #include "server_util.h"
 
+#include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 
@@ -34,7 +35,7 @@ int readBuf(int sockfd, void* buf) {
 	return p;
 }
 
-int writeBuf(int sockfd, void* buf, int len) {
+int writeBuf(int sockfd, const void* buf, int len) {
 	int writeLen;
 	int p = 0;
 	while (p < len) {
@@ -49,7 +50,7 @@ int writeBuf(int sockfd, void* buf, int len) {
 	return p;
 }
 
-int setupListen() {
+int setupListen(char* ipAddr, short port) {
 	struct sockaddr_in addr;
 	int listenfd;
 
@@ -60,8 +61,8 @@ int setupListen() {
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(6789);
-	addr.sin_addr.s_addr = htonl(INADDR_ANY);	//监听"0.0.0.0"
+	addr.sin_port = htons(port);
+	addr.sin_addr.s_addr = inet_addr(ipAddr);//htonl(INADDR_ANY);	监听"0.0.0.0"
 
 	if (bind(listenfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 		printf("Error bind(): %s(%d)\n", strerror(errno), errno);
@@ -73,6 +74,10 @@ int setupListen() {
 		return -1;
 	}
 	return listenfd;
+}
+
+void closeListen(int fd) {
+	close(fd);
 }
 
 void getCmdNParam(char* request, char* cmd, char* param) {
@@ -95,8 +100,7 @@ void getCmdNParam(char* request, char* cmd, char* param) {
 }
 
 int response2Client(int fd, int code) {
-	char* response = getResponseByCode(code);
-	// if (response(fd, code) == -1) deleteClientByfd(fd);
+	const char* response = getResponseByCode(code);
 	return writeBuf(fd, response, strlen(response));
 }
 
@@ -126,5 +130,12 @@ int acceptNewConn(int listenfd) {
 		// write something to client
 		close(latestfd);
 		return -1;
+	}
+}
+
+void strReplace(char* str, char oldc, char newc) {
+	int len = strlen(str);
+	for (int i = 0;i < len;i++) {
+		if (str[i] == oldc) str[i] = newc;
 	}
 }

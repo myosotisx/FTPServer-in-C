@@ -2,7 +2,7 @@
     #define SERVER_PI_H
 #endif
 
-char* getResponse(int code);
+const char* getResponse(int code);
 
 int validCmd(char* cmd);
 

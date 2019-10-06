@@ -3,22 +3,33 @@
 
 #include <string.h>
 
+#include <stdio.h>
+
+const char response200[] = "200 TYPE set to I.\r\n";
 const char response220[] = "220 FTP server ready.\r\n";
-const char response221[] = "221-Thanks for using this FTP service.\r\n221 Goodbye.\r\n";
+const char response215[] = "215 UNIX Type: L8\r\n";
+const char response221[] = "221-Thanks for using my FTP service.\r\n221 Goodbye.\r\n";
 const char response230[] = "230-\r\n230-Welcome to stx's FTP server!\r\n230-You can download what ever you want here.\r\n230-\r\n230 Guest login ok, access restrictions apply.\r\n";
+char response227[64];
 const char response331[] = "331 Please send your complete e-mail address as password.\r\n";
 const char response332[] = "332 Please send your username to log in (only support \"anonymous\" now).\r\n";
+const char response425[] = "425 Fail to setup data connection!\r\n";
 const char response500[] = "500 Syntax error!\r\n";
 const char response504[] = "504 Parameters not supported!\r\n";
 const char response530[] = "530 Username is unacceptable (only support \"anonymous\" now)!\r\n";
 
-char* getResponse(int code) {
+const char* getResponse(int code) {
+    printf("Debug Info: response code is %d\r\n", code);
     switch (code) {
+        case 200: return response200;
         case 220: return response220;
+        case 215: return response215;
         case 221: return response221;
+        case 227: return response227;
         case 230: return response230;
         case 331: return response331;
         case 332: return response332;
+        case 425: return response425;
         case 500: return response500;
         case 504: return response504;
         case 530: return response530;
@@ -51,6 +62,40 @@ int handleQUIT(int fd) {
     else return -2;
 }
 
+int handleABOR(int fd) {
+    // response with 221 same as QUIT
+    if (response2Client(fd, 221) == -1) return -1;
+    else return -2;
+}
+
+int handleSYST(int fd) {
+    // response with 215
+    return response2Client(fd, 215);
+}
+
+int handleTYPE(int fd, char* param) {
+    // response with 200
+    if (!strcmp(param, "I")) return response2Client(fd, 200);
+    // response with 504
+    else return response2Client(fd, 504);
+}
+
+int handlePASV(int fd) {
+    char ipAddr[32];
+    short port;
+    memset(ipAddr, 0, 32);
+    if (enterPassiveMode(fd, ipAddr, &port) != -1) {
+        short p1, p2;
+        p1 = port/256;
+        p2 = port%256;
+        strReplace(ipAddr, '.', ',');
+        // response with 227
+        sprintf(response227, "227 =%s,%d,%d\r\n", ipAddr, p1, p2);
+        return response2Client(fd, 227);
+    }
+    else return response2Client(fd, 425);
+}
+
 int validCmd(char* cmd) {
     if (strcmp(cmd, "USER")
         && strcmp(cmd, "PASS")
@@ -59,10 +104,15 @@ int validCmd(char* cmd) {
 }
 
 int cmdMapper(int fd, char* cmd, char* param) {
+    printf("Debug Info in PI: cmd is %s and param is %s\r\n", cmd, param);
 	// mapping
 	if (!strcmp(cmd, "USER")) return handleUSER(fd, param);
 	else if (!strcmp(cmd, "PASS")) return handlePASS(fd, param);
 	else if (!strcmp(cmd, "QUIT")) return handleQUIT(fd);
+    else if (!strcmp(cmd, "ABOR")) return handleABOR(fd);
+    else if (!strcmp(cmd, "SYST")) return handleSYST(fd);
+    else if (!strcmp(cmd, "TYPE")) return handleTYPE(fd, param);
+    else if (!strcmp(cmd, "PASV")) return handlePASV(fd);
 	else {
 		// response with 500
 		return response2Client(fd, 500);

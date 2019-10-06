@@ -17,6 +17,8 @@ struct Client* destroyClient(struct Client* client);
 
 struct Client* destroyClientByfd(int fd);
 
+struct Client* getClientByfd(int fd);
+
 void setUsernameByfd(int fd, char* username);
 
 char* getUsernameByfd(int fd);
@@ -33,15 +35,19 @@ struct Client* getClientHead();
 
 int getConnCnt();
 
-char* getResponseByCode(int code);
+const char* getResponseByCode(int code);
+
+int enterPassiveMode(int userfd, char* ipAddr, short* port);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int readBuf(int sockfd, void* buf);
 
-int writeBuf(int sockfd, void* buf, int len);
+int writeBuf(int sockfd, const void* buf, int len);
 
-int setupListen();
+int setupListen(char* ipAddr, short port);
+
+void closeListen(int fd);
 
 void getCmdNParam(char* request, char* cmd, char* param);
 
@@ -49,7 +55,11 @@ int response2Client(int fd, int code);
 
 int receiveFromClient(int fd, char* reqBuf, char* cmd, char* param);
 
+void strReplace(char* str, char oldc, char newc);
+
 int acceptNewConn(int listenfd);
+
+
 
 
 

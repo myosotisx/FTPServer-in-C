@@ -9,6 +9,7 @@
 struct Client* initClient(struct Client* client, int fd, struct Client* prev, struct Client* next) {
 	memset(client, 0, sizeof(struct Client));
 	client->fd = fd;
+	client->pasvfd = -1;
 	client->bytesRecv = 0;
 	client->prev = prev;
 	client->next = next;
@@ -31,6 +32,15 @@ struct Client* destroyClientByfd(int fd) {
 	while (p->next) {
 		p = p->next;
 		if (p->fd == fd) return destroyClient(p);
+	}
+	return NULL;
+}
+
+struct Client* getClientByfd(int fd) {
+	struct Client* p = getClientHead();
+	while (p->next) {
+		p = p->next;
+		if (p->fd == fd) return p;
 	}
 	return NULL;
 }

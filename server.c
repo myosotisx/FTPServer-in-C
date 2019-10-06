@@ -10,6 +10,7 @@
 
 #include <string.h>
 #include <memory.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 int listenfd;
@@ -61,7 +62,7 @@ int getConnCnt() {
 	return connCnt;
 }
 
-char* getResponseByCode(int code) {
+const char* getResponseByCode(int code) {
 	return getResponse(code);
 }
 
@@ -74,11 +75,32 @@ void initServer() {
 	tv.tv_usec = 0;
 }
 
+int enterPassiveMode(int userfd, char* ipAddr, short* port) {
+	strcpy(ipAddr, "0.0.0.0");
+	*port = 6790;
+
+	struct Client* client = getClientByfd(userfd);
+	if (!client) return -1;
+	if (client->pasvfd != -1) {
+		// 用户已经请求过PASV，关闭原先的数据端口，开启新的数据端口
+		closeListen(client->pasvfd);
+		client->pasvfd = -1;
+	}
+	if((client->pasvfd = setupListen("0.0.0.0", 6790)) != -1) {
+		printf(promptListen, 6790);
+		return 1;
+	}
+	else {
+		printf(errorListenFail);
+		return -1;
+	}
+}
+
 int process() {
 	head = (struct Client*)malloc(sizeof(struct Client));
 	initServer();
 
-	if((listenfd = setupListen()) != -1) printf(promptListen, listenPort);
+	if((listenfd = setupListen("0.0.0.0", 6789)) != -1) printf(promptListen, listenPort);
 	else {
 		printf(errorListenFail);
 		return -1;
