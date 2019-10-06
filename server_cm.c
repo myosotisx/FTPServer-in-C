@@ -11,6 +11,7 @@ struct Client* initClient(struct Client* client, int fd, struct Client* prev, st
 	client->fd = fd;
 	client->pasvlfd = -1;
 	client->pasvrfd = -1;
+	client->tfing = 0;
 	client->bytesRecv = 0;
 	client->prev = prev;
 	client->next = next;
@@ -44,6 +45,38 @@ struct Client* getClientByfd(int fd) {
 		if (p->fd == fd) return p;
 	}
 	return NULL;
+}
+
+int ready2RetriveByfd(int fd) {
+	struct Client* p = getClientHead();
+	while (p->next) {
+		p = p->next;
+		if (p->fd == fd) {
+			if (p->pasvlfd != -1 && p->pasvrfd != -1) return 1;
+			else return 0;
+		}
+	}
+	return 0;
+}
+
+int getPasvrfdByfd(int fd) {
+	struct Client* p = getClientHead();
+	while (p->next) {
+		p = p->next;
+		if (p->fd == fd) return p->pasvrfd;
+	}
+	return -1;
+}
+
+void setClientTransferByfd(int fd, int flag) {
+	struct Client* p = getClientHead();
+	while (p->next) {
+		p = p->next;
+		if (p->fd == fd) {
+			p->tfing = flag;
+			return;
+		}
+	}
 }
 
 void setUsernameByfd(int fd, char* username) {

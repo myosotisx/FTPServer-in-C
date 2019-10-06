@@ -135,7 +135,7 @@ void processClientConn() {
 	while (p->next) {
 		p = p->next;
 		if (FD_ISSET(p->fd, &fds)) {
-			char cmd[5];
+			char cmd[MAXBUF];
 			char param[MAXBUF];
 			if(receiveFromClient(p->fd, reqBuf, cmd, param) != -1) {
 				int res = cmdMapper(p->fd, cmd, param);

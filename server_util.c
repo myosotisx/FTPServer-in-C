@@ -36,6 +36,7 @@ int readBuf(int sockfd, void* buf) {
 }
 
 int writeBuf(int sockfd, const void* buf, int len) {
+	printf("Debug Info: write to fd: %d\r\n", sockfd);
 	int writeLen;
 	int p = 0;
 	while (p < len) {
@@ -48,6 +49,24 @@ int writeBuf(int sockfd, const void* buf, int len) {
 		else p += writeLen;
 	}
 	return p;
+}
+
+int writeFile(int fd, FILE* file) {
+	unsigned char fileBuf[MAXBUF];
+	int len;
+	int pasvrfd = getPasvrfdByfd(fd);
+	while ((len = fread(fileBuf, sizeof(unsigned char), MAXBUF, file))) {
+		if (writeBuf(pasvrfd, fileBuf, MAXBUF) == -1) return -1;
+	}
+	return 1;
+}
+
+unsigned int getFileSize(FILE* file) {
+	unsigned int size;
+	fseek(file, 0, SEEK_END);
+	size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+	return size;
 }
 
 int setupListen(char* ipAddr, short port) {
@@ -81,17 +100,19 @@ void closeListen(int fd) {
 }
 
 void getCmdNParam(char* request, char* cmd, char* param) {
-	memset(cmd, 0, 5);
+	memset(cmd, 0, MAXBUF);
 	memset(param, 0, MAXBUF);
 	int reqLen = strlen(request);
 	char* p = strchr(request, ' ');
 	// seperate cmd and param
 	if (!p) {
-		int q = reqLen-2 <= 4 ? reqLen-2 : 4;
+		// int q = reqLen-2 <= 4 ? reqLen-2 : 4;
+		int q = reqLen-2;
 		strncpy(cmd, request, q);
 	}
 	else {
-		int q = p-request <= 4 ? p-request : 4;
+		// int q = p-request <= 4 ? p-request : 4;
+		int q = p-request;
 		strncpy(cmd, request, q);
 		strncpy(param, request+q+1, reqLen-(q+1)-1); // 处理部分客户端请求以\n结尾
 		int paramLen = strlen(param);

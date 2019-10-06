@@ -2,6 +2,8 @@
     #define SERVER_UTIL_H
 #endif
 
+#include <stdio.h>
+
 #define BACKLOG 10
 #define MAXBUF 8192
 
@@ -18,6 +20,12 @@ struct Client* destroyClient(struct Client* client);
 struct Client* destroyClientByfd(int fd);
 
 struct Client* getClientByfd(int fd);
+
+int ready2RetriveByfd(int fd);
+
+int getPasvrfdByfd(int fd);
+
+void setClientTransferByfd(int fd, int flag);
 
 void setUsernameByfd(int fd, char* username);
 
@@ -42,6 +50,10 @@ int enterPassiveMode(int userfd, char* ipAddr, short* port);
 int readBuf(int sockfd, void* buf);
 
 int writeBuf(int sockfd, const void* buf, int len);
+
+int writeFile(int fd, FILE* file);
+
+unsigned int getFileSize(FILE* file);
 
 int setupListen(char* ipAddr, short port);
 

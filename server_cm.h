@@ -8,6 +8,7 @@ struct Client {
 	int fd;
 	int pasvlfd;
 	int pasvrfd;
+	int tfing;
 	char username[MAXBUF];
 	char password[MAXBUF];
 	int bytesRecv;
