@@ -33,8 +33,6 @@ void printClient();
 
 struct Client* getClientHead();
 
-int getConnCnt();
-
 const char* getResponseByCode(int code);
 
 int enterPassiveMode(int userfd, char* ipAddr, short* port);

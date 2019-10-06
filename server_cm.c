@@ -9,7 +9,8 @@
 struct Client* initClient(struct Client* client, int fd, struct Client* prev, struct Client* next) {
 	memset(client, 0, sizeof(struct Client));
 	client->fd = fd;
-	client->pasvfd = -1;
+	client->pasvlfd = -1;
+	client->pasvrfd = -1;
 	client->bytesRecv = 0;
 	client->prev = prev;
 	client->next = next;

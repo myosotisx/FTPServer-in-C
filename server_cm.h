@@ -6,7 +6,8 @@
 
 struct Client {
 	int fd;
-	int pasvfd;
+	int pasvlfd;
+	int pasvrfd;
 	char username[MAXBUF];
 	char password[MAXBUF];
 	int bytesRecv;

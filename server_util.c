@@ -117,20 +117,21 @@ int receiveFromClient(int fd, char* reqBuf, char* cmd, char* param) {
 }
 
 int acceptNewConn(int listenfd) {
-	int latestfd;
-	if ((latestfd = accept(listenfd, NULL, NULL)) == -1) {
+	int newfd;
+	if ((newfd = accept(listenfd, NULL, NULL)) == -1) {
 		printf("Error accept(): %s(%d)\n", strerror(errno), errno);
 		return -1;
 	}
-
-	if (getConnCnt() < BACKLOG) {
-		return latestfd;
+	// 暂时不限制连接数量
+	/*if (getConnCnt() < BACKLOG) {
+		return newfd;
 	}
 	else {
 		// write something to client
-		close(latestfd);
+		close(newfd);
 		return -1;
-	}
+	}*/
+	else return newfd;
 }
 
 void strReplace(char* str, char oldc, char newc) {
