@@ -71,6 +71,15 @@ int getDataConnfdByfd(int fd) {
 	return -1;
 }
 
+int getDataListenfdByfd(int fd) {
+	struct Client* p = getClientHead();
+	while (p->next) {
+		p = p->next;
+		if (p->fd == fd) return p->dataListenfd;
+	}
+	return -1;
+}
+
 void setClientTransferByfd(int fd, int flag) {
 	struct Client* p = getClientHead();
 	while (p->next) {

@@ -13,6 +13,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+char rootPath[MAXPATH] = "FTPFile/";
+
 int readBuf(int sockfd, void* buf) {
 	int readLen;
 	int p = 0, bufp = 0;
@@ -79,16 +81,15 @@ int setupListen(char* ipAddr, short port) {
 		return -1;
 	}
 
-	printf("listenfd: %d\r\n", listenfd);
-
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
-	addr.sin_addr.s_addr = /*inet_addr(ipAddr);*/htonl(INADDR_ANY);
+	addr.sin_addr.s_addr = inet_addr(ipAddr);
 
 	if (bind(listenfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 		printf("Error bind(): %s(%d)\n", strerror(errno), errno);
-		return -1;
+		// 如果绑定失败说明已经建立过PASV数据连接，重新开启监听即可
+		// return -1; 
 	}
 
 	if (listen(listenfd, BACKLOG) == -1) {
@@ -96,10 +97,6 @@ int setupListen(char* ipAddr, short port) {
 		return -1;
 	}
 	return listenfd;
-}
-
-void closeListen(int fd) {
-	close(fd);
 }
 
 void getCmdNParam(char* request, char* cmd, char* param) {
@@ -206,9 +203,16 @@ int setupDataConnByfd(int fd) {
 }
 
 void closeDataConnByfd(int fd) {
-	int dataConnfd;
-	if ((dataConnfd = getDataConnfdByfd(fd)) != -1) close(dataConnfd);
+	int dataConnfd, dataListenfd;
+	close(getDataListenfdByfd(fd));
+	close(getDataConnfdByfd(fd));
 	clearDataConnByfd(fd);
+}
+
+void getFilePath(char* path, char* param) {
+	memset(path, 0, MAXPATH);
+	strcpy(path, rootPath);
+	strcat(path, param);
 }
 
 void strReplace(char* str, char oldc, char newc) {

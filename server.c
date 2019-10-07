@@ -48,13 +48,8 @@ struct Client* deleteClientByfd(int fd) {
 	struct Client* client = getClientByfd(fd);
 	
 	if (!client) return NULL;
-	if (client->dataListenfd != -1) {
-		close(client->dataConnfd);
-		close(client->dataListenfd);
-		// 执行删除用户的时候这两个文件描述符不在fds中，所以不用清除
-		client->dataConnfd = -1;
-		client->dataListenfd = -1;
-	}
+	close(client->dataConnfd);
+	close(client->dataListenfd);
 	close(fd);
 	FD_CLR(fd, &fds);
 
@@ -85,20 +80,20 @@ void initServer() {
 	tv.tv_usec = 0;
 }
 
-int enterPassiveMode(int userfd, char* ipAddr, short* port) {
-	strcpy(ipAddr, "127.0.0.1");
-	*port = 30000;
+int enterPassiveMode(int userfd, char* ipAddr, int* port) {
+	strcpy(ipAddr, "0.0.0.0");
+	*port = 57302;
 
 	struct Client* client = getClientByfd(userfd);
 	if (!client) return -1;
 	if (client->dataListenfd != -1) {
-		// 用户已经请求过PASV，关闭原先的数据端口，开启新的数据端口
 		close(client->dataConnfd);
 		close(client->dataListenfd);
 		client->dataConnfd = -1;
 		client->dataListenfd = -1;
 	}
 	if((client->dataListenfd = setupListen(ipAddr, *port)) != -1) {
+		client->mode = 1;
 		printf(promptDataListen, *port, client->fd, client->dataListenfd);
 		return 1;
 	}
@@ -183,21 +178,18 @@ void processClientConn() {
 
 void processDataConn() {
 	FD_ZERO(&fds);
-	FD_SET(listenfd, &fds);
 
-	int maxfd = -1;
-	int dataConnCnt = 0;
+	int maxfd = 0;
 	struct Client* p = head;
 	while (p->next) {
 		p = p->next;
 		if (p->dataListenfd != -1) {
 			FD_SET(p->dataListenfd, &fds);
-			dataConnCnt++;
-			if (p->dataListenfd > maxfd) maxfd = p->fd;
+			if (p->dataListenfd > maxfd) maxfd = p->dataListenfd;
 		}
 	}
 
-	if (!dataConnCnt) return;
+	if (!maxfd) return;
 
 	int ret = select(maxfd+1, &fds, NULL, NULL, &tv);
 	if (ret < 0) {

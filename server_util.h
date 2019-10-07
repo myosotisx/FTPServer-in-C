@@ -6,6 +6,7 @@
 
 #define BACKLOG 10
 #define MAXBUF 8192
+#define MAXPATH 1024
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -24,6 +25,8 @@ struct Client* getClientByfd(int fd);
 int ready2RetriveByfd(int fd);
 
 int getDataConnfdByfd(int fd);
+
+int getDataListenfdByfd(int fd);
 
 int getIpAddrNPortByfd(int fd, char* ipAddr, int* port);
 
@@ -51,7 +54,7 @@ struct Client* getClientHead();
 
 const char* getResponseByCode(int code);
 
-int enterPassiveMode(int userfd, char* ipAddr, short* port);
+int enterPassiveMode(int userfd, char* ipAddr, int* port);
 
 int enterPortMode(int userfd, char* ipAddr, int port);
 
@@ -67,9 +70,9 @@ unsigned int getFileSize(FILE* file);
 
 int setupListen(char* ipAddr, short port);
 
-void closeListen(int fd);
-
 void getCmdNParam(char* request, char* cmd, char* param);
+
+void getFilePath(char* path, char* param);
 
 int response2Client(int fd, int code);
 

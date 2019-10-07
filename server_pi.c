@@ -107,7 +107,7 @@ int handlePORT(int fd, char* param) {
 
 int handlePASV(int fd) {
     char ipAddr[32];
-    short port;
+    int port;
     memset(ipAddr, 0, 32);
     if (enterPassiveMode(fd, ipAddr, &port) != -1) {
         short p1, p2;
@@ -123,13 +123,12 @@ int handlePASV(int fd) {
 }
 
 int handleRETR(int fd, char* param) {
-
-    char path[32] = "tmp/";
-    strcat(path, param);
+    char path[MAXPATH];
+    getFilePath(path, param);
     
     FILE* file = fopen(path, "rb");
     if (file) {
-        sprintf(response150, "150 Opening BINARY mode data connection for %s (%u bytes).\r\n", path, getFileSize(file));
+        sprintf(response150, "150 Opening BINARY mode data connection for %s (%u bytes).\r\n", param, getFileSize(file));
         // response with 150
         if (response2Client(fd, 150) == -1) {
             fclose(file);
@@ -139,17 +138,16 @@ int handleRETR(int fd, char* param) {
         if (getDataModeByfd(fd) == 0) {
             // PORT mode
             if (setupDataConnByfd(fd) == -1) {
-                // 数据连接建立失败
-                // response with 425
                 fclose(file);
+                // response with 425
                 return response2Client(fd, 425);
             }
             setClientTransferByfd(fd, 1);
             if (writeFile(fd, file) == -1) {
-                // 数据连接被破坏
                 closeDataConnByfd(fd);
                 setClientTransferByfd(fd, 0);
                 fclose(file);
+                // response with 426
                 return response2Client(fd, 426);
             }
             closeDataConnByfd(fd);
@@ -159,13 +157,28 @@ int handleRETR(int fd, char* param) {
         }
         else if (getDataModeByfd(fd) == 1) {
             // PASV mode
-            return response2Client(fd, 225);
+            if (getDataConnfdByfd(fd) == -1 || getDataListenfdByfd(fd) == -1) {
+                fclose(file);
+                // response with 425
+                return response2Client(fd, 425);
+            }
+            setClientTransferByfd(fd, 1);
+            if (writeFile(fd, file) == -1) {
+                closeDataConnByfd(fd);
+                setClientTransferByfd(fd, 0);
+                fclose(file);
+                // response with 426
+                return response2Client(fd, 426);
+            }
+            closeDataConnByfd(fd);
+            setClientTransferByfd(fd, 0);
+            fclose(file); 
+            return response2Client(fd, 226);
         }
         // response with 425
         else return response2Client(fd, 425);
     }
     else {
-        // 读取文件失败
         // response with 451
         return response2Client(fd, 451);
     }
