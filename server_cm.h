@@ -6,9 +6,12 @@
 
 struct Client {
 	int fd;
-	int pasvlfd;
-	int pasvrfd;
+	int dataListenfd;
+	int dataConnfd;
 	int tfing;
+	int port;
+	int mode;  // 0表示PORT，1表示PASV，默认为0
+	char ipAddr[32];
 	char username[MAXBUF];
 	char password[MAXBUF];
 	int bytesRecv;

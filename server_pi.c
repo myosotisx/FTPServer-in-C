@@ -8,7 +8,7 @@
 #define MAXRES 1024
 
 char response150[MAXRES];
-const char response200[] = "200 TYPE set to I.\r\n";
+char response200[MAXRES]; //= "200 TYPE set to I.\r\n";
 const char response220[] = "220 FTP server ready.\r\n";
 const char response215[] = "215 UNIX Type: L8\r\n";
 const char response221[] = "221-Thanks for using my FTP service.\r\n221 Goodbye.\r\n";
@@ -84,10 +84,25 @@ int handleSYST(int fd) {
 }
 
 int handleTYPE(int fd, char* param) {
-    // response with 200
-    if (!strcmp(param, "I")) return response2Client(fd, 200);
+    if (!strcmp(param, "I")) {
+        sprintf(response200, "200 TYPE set to I.\r\n");
+        // response with 200
+        return response2Client(fd, 200);
+    }
     // response with 504
     else return response2Client(fd, 504);
+}
+
+int handlePORT(int fd, char* param) {
+    char ipAddr[32];
+    int port;
+    parseIpAddrNPort(param, ipAddr, &port);
+    // response with 425
+    if (enterPortMode(fd, ipAddr, port) == -1) return response2Client(fd, 425);
+    sprintf(response200, "200 PORT command sccessful.\r\n");
+    // response with 200
+    if (response2Client(fd, 200) == -1) return -1;
+    else return 1;
 }
 
 int handlePASV(int fd) {
@@ -99,7 +114,7 @@ int handlePASV(int fd) {
         p1 = port/256;
         p2 = port%256;
         strReplace(ipAddr, '.', ',');
-        sprintf(response227, "227 =%s,%d,%d\r\n", ipAddr, p1, p2);
+        sprintf(response227, "227 Entering Passive Mode (%s,%d,%d)\r\n", ipAddr, p1, p2);
         // response with 227
         return response2Client(fd, 227);
     }
@@ -120,26 +135,34 @@ int handleRETR(int fd, char* param) {
             fclose(file);
             return -1;
         }
-        // 目前仅支持PASV
-        if (!ready2RetriveByfd(fd)) {
-            // 数据TCP连接建立失败
-            fclose(file);
-            // response with 425
-            return response2Client(fd, 425);
-        }
-        printf("here\r\n");
-        // 此处停止接受客户端控制连接的请求（除了QUIT和ABOR)
-        setClientTransferByfd(fd, 1);
-        if (writeFile(fd, file) == -1) {
+
+        if (getDataModeByfd(fd) == 0) {
+            // PORT mode
+            if (setupDataConnByfd(fd) == -1) {
+                // 数据连接建立失败
+                // response with 425
+                fclose(file);
+                return response2Client(fd, 425);
+            }
+            setClientTransferByfd(fd, 1);
+            if (writeFile(fd, file) == -1) {
+                // 数据连接被破坏
+                closeDataConnByfd(fd);
+                setClientTransferByfd(fd, 0);
+                fclose(file);
+                return response2Client(fd, 426);
+            }
+            closeDataConnByfd(fd);
             setClientTransferByfd(fd, 0);
             fclose(file);
-            // response with 426
-            return response2Client(fd, 426);
+            return response2Client(fd, 226);
         }
-        // 此处关闭数据连接，开启接受客户端控制连接的请求
-        setClientTransferByfd(fd, 0);
-        fclose(file);
-        return response2Client(fd, 226);
+        else if (getDataModeByfd(fd) == 1) {
+            // PASV mode
+            return response2Client(fd, 225);
+        }
+        // response with 425
+        else return response2Client(fd, 425);
     }
     else {
         // 读取文件失败
@@ -165,6 +188,7 @@ int cmdMapper(int fd, char* cmd, char* param) {
     else if (!strcmp(cmd, "ABOR")) return handleABOR(fd);
     else if (!strcmp(cmd, "SYST")) return handleSYST(fd);
     else if (!strcmp(cmd, "TYPE")) return handleTYPE(fd, param);
+    else if (!strcmp(cmd, "PORT")) return handlePORT(fd, param);
     else if (!strcmp(cmd, "PASV")) return handlePASV(fd);
     else if (!strcmp(cmd, "RETR")) return handleRETR(fd, param);
 	else {

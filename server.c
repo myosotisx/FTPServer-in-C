@@ -14,7 +14,7 @@
 #include <stdio.h>
 
 int listenfd;
-int listenPort = 6789;
+int listenPort = 57301;
 
 struct Client* head, *tail;
 int connCnt = 0;
@@ -25,17 +25,18 @@ struct fd_set fds;
 struct timeval tv;
 
 const char promptClientListen[] = "Server starts listening at port: %d.\r\n";
-const char promptDataListen[] = "Server starts data listening at port: %d for client (fd: %d, pasvlfd: %d).\r\n";
+const char promptDataListen[] = "Server starts data listening at port: %d for client (fd: %d, dataListenfd: %d).\r\n";
+const char promptDataConnReady[] = "Server data connection with client (fd: %d, ipAddr: %s, port: %d) is ready.\r\n";
 const char promptTimeout[] = "Select Timeout.\r\n";
 const char promptClientClose[] = "Connection with client (fd: %d) closed normally.\r\n";
 const char promptReceive[] = "Receive from client (fd: %d):\r\n";
 const char promptNewConn[] = "New connection from client (fd: %d).\r\n";
-const char promptNewDataConn[] = "New data connection from client (fd: %d, pasvlfd: %d, pasvrfd: %d).\r\n";
+const char promptNewDataConn[] = "New data connection from client (fd: %d, dataListenfd: %d, dataConnfd: %d).\r\n";
 
 const char errorListenFail[] = "Fail to setup listen at port: %d!\r\n";
 const char errorSelect[] = "Error occurs when using select()! Sever aborts!\r\n";
 const char errorClientConn[] = "Connection with client fails!\r\n";
-const char errorClientDataConn[] = "Data Connection with client (fd: %d, pasvlfd: %d) fails!\r\n";
+const char errorClientDataConn[] = "Data Connection with client (fd: %d, dataListenfd: %d) fails!\r\n";
 const char errorInvalidReq[] = "Invalid Request!\r\n";
 const char errorConnShutDown[] = "Connection with client (fd: %d) has been shut down!\r\n";
 
@@ -47,12 +48,12 @@ struct Client* deleteClientByfd(int fd) {
 	struct Client* client = getClientByfd(fd);
 	
 	if (!client) return NULL;
-	if (client->pasvlfd != -1) {
-		close(client->pasvrfd);
-		close(client->pasvlfd);
+	if (client->dataListenfd != -1) {
+		close(client->dataConnfd);
+		close(client->dataListenfd);
 		// 执行删除用户的时候这两个文件描述符不在fds中，所以不用清除
-		client->pasvrfd = -1;
-		client->pasvlfd = -1;
+		client->dataConnfd = -1;
+		client->dataListenfd = -1;
 	}
 	close(fd);
 	FD_CLR(fd, &fds);
@@ -85,26 +86,37 @@ void initServer() {
 }
 
 int enterPassiveMode(int userfd, char* ipAddr, short* port) {
-	strcpy(ipAddr, "0.0.0.0");
-	*port = 6790;
+	strcpy(ipAddr, "127.0.0.1");
+	*port = 30000;
 
 	struct Client* client = getClientByfd(userfd);
 	if (!client) return -1;
-	if (client->pasvlfd != -1) {
+	if (client->dataListenfd != -1) {
 		// 用户已经请求过PASV，关闭原先的数据端口，开启新的数据端口
-		close(client->pasvrfd);
-		close(client->pasvlfd);
-		client->pasvrfd = -1;
-		client->pasvlfd = -1;
+		close(client->dataConnfd);
+		close(client->dataListenfd);
+		client->dataConnfd = -1;
+		client->dataListenfd = -1;
 	}
-	if((client->pasvlfd = setupListen("0.0.0.0", 6790)) != -1) {
-		printf(promptDataListen, 6790, client->fd, client->pasvlfd);
+	if((client->dataListenfd = setupListen(ipAddr, *port)) != -1) {
+		printf(promptDataListen, *port, client->fd, client->dataListenfd);
 		return 1;
 	}
 	else {
-		printf(errorListenFail, 6790);
+		printf(errorListenFail, *port);
 		return -1;
 	}
+}
+
+int enterPortMode(int userfd, char* ipAddr, int port) {
+	struct Client* client = getClientByfd(userfd);
+	if (!client) return -1;
+	client->mode = 0;
+	memset(client->ipAddr, 0, sizeof(client->ipAddr));
+	strcpy(client->ipAddr, ipAddr);
+	client->port = port;
+	printf(promptDataConnReady, client->fd, client->ipAddr, client->port);
+	return 1;
 }
 
 void processClientConn() {
@@ -178,10 +190,10 @@ void processDataConn() {
 	struct Client* p = head;
 	while (p->next) {
 		p = p->next;
-		if (p->pasvlfd != -1) {
-			FD_SET(p->pasvlfd, &fds);
+		if (p->dataListenfd != -1) {
+			FD_SET(p->dataListenfd, &fds);
 			dataConnCnt++;
-			if (p->pasvlfd > maxfd) maxfd = p->fd;
+			if (p->dataListenfd > maxfd) maxfd = p->fd;
 		}
 	}
 
@@ -200,13 +212,13 @@ void processDataConn() {
 	p = head;
 	while (p->next) {
 		p = p->next;
-		if (p->pasvlfd != -1 && FD_ISSET(p->pasvlfd, &fds)) {
+		if (p->dataListenfd != -1 && FD_ISSET(p->dataListenfd, &fds)) {
 			// 处理客户端数据连接请求
-			if ((p->pasvrfd = acceptNewConn(p->pasvlfd)) != -1) {
-				printf(promptNewDataConn, p->fd, p->pasvlfd, p->pasvrfd);
+			if ((p->dataConnfd = acceptNewConn(p->dataListenfd)) != -1) {
+				printf(promptNewDataConn, p->fd, p->dataListenfd, p->dataConnfd);
 			}
 			else {
-				printf(errorClientDataConn, p->fd, p->pasvlfd);
+				printf(errorClientDataConn, p->fd, p->dataListenfd);
 				continue;
 			}
 		}
@@ -217,15 +229,15 @@ int process() {
 	head = (struct Client*)malloc(sizeof(struct Client));
 	initServer();
 
-	if((listenfd = setupListen("0.0.0.0", 6789)) != -1) printf(promptClientListen, listenPort);
+	if((listenfd = setupListen("0.0.0.0", listenPort)) != -1) printf(promptClientListen, listenPort);
 	else {
-		printf(errorListenFail, 6789);
+		printf(errorListenFail, listenPort);
 		return -1;
 	}
 	
 	while (1) {
-		processClientConn();
 		processDataConn();
+		processClientConn();
 	}
 	
 	return 0;

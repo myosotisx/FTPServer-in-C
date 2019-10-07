@@ -23,13 +23,21 @@ struct Client* getClientByfd(int fd);
 
 int ready2RetriveByfd(int fd);
 
-int getPasvrfdByfd(int fd);
+int getDataConnfdByfd(int fd);
+
+int getIpAddrNPortByfd(int fd, char* ipAddr, int* port);
 
 void setClientTransferByfd(int fd, int flag);
 
+void setDataConnfdByfd(int fd, int sockfd);
+
 void setUsernameByfd(int fd, char* username);
 
+void clearDataConnByfd(int fd);
+
 char* getUsernameByfd(int fd);
+
+int getDataModeByfd(int fd);
 
 void setPasswordByfd(int fd, char* password);
 
@@ -44,6 +52,8 @@ struct Client* getClientHead();
 const char* getResponseByCode(int code);
 
 int enterPassiveMode(int userfd, char* ipAddr, short* port);
+
+int enterPortMode(int userfd, char* ipAddr, int port);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -67,7 +77,13 @@ int receiveFromClient(int fd, char* reqBuf, char* cmd, char* param);
 
 void strReplace(char* str, char oldc, char newc);
 
+void parseIpAddrNPort(char* param, char* ipAddr, int* port);
+
 int acceptNewConn(int listenfd);
+
+int setupDataConnByfd(int fd);
+
+void closeDataConnByfd(int fd);
 
 
 

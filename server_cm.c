@@ -8,9 +8,12 @@
 
 struct Client* initClient(struct Client* client, int fd, struct Client* prev, struct Client* next) {
 	memset(client, 0, sizeof(struct Client));
+	memset(client->ipAddr, 0, 32);
 	client->fd = fd;
-	client->pasvlfd = -1;
-	client->pasvrfd = -1;
+	client->dataListenfd = -1;
+	client->dataConnfd = -1;
+	client->port = -1;
+	client->mode = 0;
 	client->tfing = 0;
 	client->bytesRecv = 0;
 	client->prev = prev;
@@ -52,18 +55,18 @@ int ready2RetriveByfd(int fd) {
 	while (p->next) {
 		p = p->next;
 		if (p->fd == fd) {
-			if (p->pasvlfd != -1 && p->pasvrfd != -1) return 1;
+			if (p->dataListenfd != -1 && p->dataConnfd != -1) return 1;
 			else return 0;
 		}
 	}
 	return 0;
 }
 
-int getPasvrfdByfd(int fd) {
+int getDataConnfdByfd(int fd) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;
-		if (p->fd == fd) return p->pasvrfd;
+		if (p->fd == fd) return p->dataConnfd;
 	}
 	return -1;
 }
@@ -91,6 +94,17 @@ void setUsernameByfd(int fd, char* username) {
 	}
 }
 
+void setDataConnfdByfd(int fd, int sockfd) {
+	struct Client* p = getClientHead();
+	while (p->next) {
+		p = p->next;
+		if (p->fd == fd) {
+			p->dataConnfd = sockfd;
+			return;
+		}
+	}
+}
+
 char* getUsernameByfd(int fd) {
 	struct Client* p = getClientHead();
 	while (p->next) {
@@ -100,6 +114,28 @@ char* getUsernameByfd(int fd) {
 	return NULL;
 }
 
+int getDataModeByfd(int fd) {
+	struct Client* p = getClientHead();
+	while (p->next) {
+		p = p->next;
+		if (p->fd == fd) return p->mode;
+	}
+	return -1;
+}
+
+int getIpAddrNPortByfd(int fd, char* ipAddr, int* port) {
+	struct Client* p = getClientHead();
+	while (p->next) {
+		p = p->next;
+		if (p->fd == fd) {
+			strcpy(ipAddr, p->ipAddr);
+			*port = p->port;
+			return 1;
+		}
+	}
+	return -1;
+}
+
 void setPasswordByfd(int fd, char* password) {
 	struct Client* p = getClientHead();
 	while (p->next) {
@@ -107,6 +143,22 @@ void setPasswordByfd(int fd, char* password) {
 		if (p->fd == fd) {
 			memset(p->password, 0, sizeof(p->password));
 			strcpy(p->password, password);
+			return;
+		}
+	}
+}
+
+void clearDataConnByfd(int fd) {
+	struct Client* p = getClientHead();
+	while (p->next) {
+		p = p->next;
+		if (p->fd == fd) {
+			memset(p->ipAddr, 0, 32);
+			p->port = -1;
+			p->dataListenfd = -1;
+			p->dataConnfd = -1;
+			
+			p->mode = 0;  // 0表示PORT，1表示PASV，默认为0
 			return;
 		}
 	}
