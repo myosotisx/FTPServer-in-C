@@ -42,6 +42,8 @@ int getDataMode(int fd);
 
 const char* getWorkDir(int fd);
 
+int setWorkDir(int fd, char* path);
+
 void setPassword(int fd, char* password);
 
 void printClient();
@@ -88,8 +90,8 @@ int setupDataConn(int fd);
 
 void closeDataConn(int fd);
 
+char* getFormatPath(char* formatPath, const char* path);
 
+int makeDir(int fd, const char* path);
 
-
-
-
+int changeWorkDir(int fd, const char* path);

@@ -15,6 +15,7 @@ const char response221[] = "221-Thanks for using my FTP service.\r\n221 Goodbye.
 const char response226[] = "226 Transfer complete.\r\n";
 char response227[MAXRES];
 const char response230[] = "230-\r\n230-Welcome to stx's FTP server!\r\n230-You can download what ever you want here.\r\n230-\r\n230 Guest login ok, access restrictions apply.\r\n";
+char response250[MAXRES];
 char response257[MAXRES];
 const char response331[] = "331 Please send your complete e-mail address as password.\r\n";
 const char response332[] = "332 Please send your username to log in (only support \"anonymous\" now).\r\n";
@@ -24,6 +25,7 @@ const char response451[] = "451 Fail to open file!\r\n";
 const char response500[] = "500 Syntax error!\r\n";
 const char response504[] = "504 Parameters not supported!\r\n";
 const char response530[] = "530 Username is unacceptable (only support \"anonymous\" now)!\r\n";
+const char response550[] = "550 Directory operation fail! Please check the parameter.\r\n";
 
 const char* getResponse(int code) {
     printf("Debug Info: response code is %d\r\n", code);
@@ -36,6 +38,7 @@ const char* getResponse(int code) {
         case 226: return response226;
         case 227: return response227;
         case 230: return response230;
+        case 250: return response250;
         case 257: return response257;
         case 331: return response331;
         case 332: return response332;
@@ -45,6 +48,7 @@ const char* getResponse(int code) {
         case 500: return response500;
         case 504: return response504;
         case 530: return response530;
+        case 550: return response550;
         default: return response500;
     }
 }
@@ -188,9 +192,37 @@ int handleRETR(int fd, char* param) {
 }
 
 int handlePWD(int fd) {
-    sprintf(response257, "257 \"%s\" is your current location.\r\n", getWorkDir(fd));
+    char formatPath[MAXPATH];
+    getFormatPath(formatPath, getWorkDir(fd));
+    sprintf(response257, "257 \"%s\" is your current location.\r\n", formatPath);
     // response with 257
     return response(fd, 257);
+}
+
+int handleMKD(int fd, char* param) {
+    if (makeDir(fd, param) != -1) {
+        char formatPath[MAXPATH];
+        getFormatPath(formatPath, param);
+        sprintf(response257, "257 \"%s\" : The directory was successfully created.\r\n", formatPath);
+        // response with 257
+        return response(fd, 257);
+    }
+    else {
+        // response with 550
+        return response(fd, 550);
+    }
+}
+
+int handleCWD(int fd, char* param) {
+    if (changeWorkDir(fd, param) != -1) {
+        sprintf(response250, "250 OK. Current directory is %s\r\n", getWorkDir(fd));
+        // response with 250
+        return response(fd, 250);
+    }
+    else {
+        // response with 550
+        return response(fd, 550);
+    }
 }
 
 int validCmd(char* cmd) {
@@ -213,6 +245,8 @@ int cmdMapper(int fd, char* cmd, char* param) {
     else if (!strcmp(cmd, "PASV")) return handlePASV(fd);
     else if (!strcmp(cmd, "RETR")) return handleRETR(fd, param);
     else if (!strcmp(cmd, "PWD")) return handlePWD(fd);
+    else if (!strcmp(cmd, "MKD")) return handleMKD(fd, param);
+    else if (!strcmp(cmd, "CWD")) return handleCWD(fd, param);
 	else {
 		// response with 500
 		return response(fd, 500);

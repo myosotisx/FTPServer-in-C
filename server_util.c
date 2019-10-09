@@ -2,9 +2,12 @@
 
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 
 #include <unistd.h>
+#include <dirent.h>
 #include <errno.h>
 
 #include <ctype.h>
@@ -250,4 +253,102 @@ void parseIpAddrNPort(char* param, char* ipAddr, int* port) {
 		i--;
 	}
 	
+}
+
+char* getFormatPath(char* formatPath, const char* path) {
+	memset(formatPath, 0, MAXPATH);
+	int p = 0;
+	int len = strlen(path);
+	for (int i = 0;i < len;i++) {
+		if (path[i] == '\"') {
+			formatPath[p++] = '\"';
+			formatPath[p++] = '\"';
+		}
+		else if (path[i] == '\n');
+		else formatPath[p++] = path[i];
+	}
+	return formatPath;
+}
+
+int makeDir(int fd, const char* path) {
+	char realPath[MAXPATH];
+	memset(realPath, 0, MAXPATH);
+	strcpy(realPath, rootPath);
+	if (path[0] == '/') {
+		strcat(realPath, path);
+	}
+	else {
+		strcat(realPath, getWorkDir(fd));
+		if (realPath[strlen(realPath)-1] != '/') strcat(realPath, "/");
+		strcat(realPath, path);
+	}
+	return mkdir(realPath, S_IRWXU|S_IRWXG|S_IROTH|S_IXOTH);
+}
+
+int changeWorkDir(int fd, const char* path) {
+	char nWorkDir[MAXPATH];
+	char dirName[MAXPATH];
+	memset(nWorkDir, 0, MAXPATH);
+	// int rsep = 0;
+	// int t = 0;
+	int p, q;
+	if (path[0] == '/') {
+		// 绝对路径
+		p = 1, q = 1;
+		strcat(nWorkDir, "/");
+	}
+	else {
+		p = 0, q = 0;
+		strcat(nWorkDir, getWorkDir(fd));
+	}
+	int rsep = strrchr(nWorkDir, '/')-nWorkDir;
+	int t = strlen(nWorkDir)-1;
+	int len = strlen(path);
+	while (q < len) {
+		if (path[q] == '/') {
+			memset(dirName, 0, MAXPATH);
+			strncpy(dirName, path+p, q-p);
+			// printf("dirName: %s\r\n", dirName);
+			if (!strcmp(dirName, "..")) {
+				if (t) {
+					t = rsep-1 > 0 ? rsep-1 : 0;
+					nWorkDir[t+1] = 0;
+					rsep = strrchr(nWorkDir, '/')-nWorkDir;
+				}
+			}
+			else if (strcmp(dirName, "")) {
+				if (t) {
+					strcat(nWorkDir, "/");
+					rsep = t+1;
+				}
+				strcat(nWorkDir, dirName);
+				t = strlen(nWorkDir)-1;
+			}
+			p = q+1;
+			// printf("nWorkDir: %s\r\n", nWorkDir);
+		}
+		q++;
+	}
+	if (path[len-1] != '/') {
+		memset(dirName, 0, MAXPATH);
+		strncpy(dirName, path+p, len-p);
+		if (!strcmp(dirName, "..")) {
+			if (t) {
+				t = rsep-1 > 0 ? rsep-1 : 0;
+				nWorkDir[t+1] = 0;	
+			}
+		}
+		else {
+			if (t) strcat(nWorkDir, "/");
+			strcat(nWorkDir, dirName);
+		}
+	}
+	
+	
+	char realPath[MAXPATH];
+	memset(realPath, 0, MAXPATH);
+	strcpy(realPath, rootPath);
+	strcat(realPath, nWorkDir);
+	if (opendir(realPath) && setWorkDir(fd, nWorkDir) != -1) return 1;
+	else return -1;
 }

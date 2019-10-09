@@ -119,6 +119,16 @@ const char* getWorkDir(int fd) {
 	else return NULL;
 }
 
+int setWorkDir(int fd, char* path) {
+	struct Client* p = getClient(fd);
+	if (p) {
+		memset(p->workDir, 0, MAXPATH);
+		strcpy(p->workDir, path);
+		return 1;
+	}
+	else return -1;
+}
+
 int getDataMode(int fd) {
 	struct Client* p = getClientHead();
 	while (p->next) {
