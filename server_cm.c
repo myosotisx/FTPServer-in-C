@@ -43,7 +43,7 @@ struct Client* destroyClientByfd(int fd) {
 	return NULL;
 }
 
-struct Client* getClientByfd(int fd) {
+struct Client* getClient(int fd) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;
@@ -52,19 +52,7 @@ struct Client* getClientByfd(int fd) {
 	return NULL;
 }
 
-int ready2RetriveByfd(int fd) {
-	struct Client* p = getClientHead();
-	while (p->next) {
-		p = p->next;
-		if (p->fd == fd) {
-			if (p->dataListenfd != -1 && p->dataConnfd != -1) return 1;
-			else return 0;
-		}
-	}
-	return 0;
-}
-
-int getDataConnfdByfd(int fd) {
+int getDataConnfd(int fd) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;
@@ -73,7 +61,7 @@ int getDataConnfdByfd(int fd) {
 	return -1;
 }
 
-int getDataListenfdByfd(int fd) {
+int getDataListenfd(int fd) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;
@@ -82,7 +70,7 @@ int getDataListenfdByfd(int fd) {
 	return -1;
 }
 
-void setClientTransferByfd(int fd, int flag) {
+void setClientTransfer(int fd, int flag) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;
@@ -93,7 +81,7 @@ void setClientTransferByfd(int fd, int flag) {
 	}
 }
 
-void setUsernameByfd(int fd, char* username) {
+void setUsername(int fd, char* username) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;
@@ -105,7 +93,7 @@ void setUsernameByfd(int fd, char* username) {
 	}
 }
 
-void setDataConnfdByfd(int fd, int sockfd) {
+void setDataConnfd(int fd, int sockfd) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;
@@ -116,7 +104,7 @@ void setDataConnfdByfd(int fd, int sockfd) {
 	}
 }
 
-char* getUsernameByfd(int fd) {
+char* getUsername(int fd) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;
@@ -126,12 +114,12 @@ char* getUsernameByfd(int fd) {
 }
 
 const char* getWorkDir(int fd) {
-	struct Client* p = getClientByfd(fd);
+	struct Client* p = getClient(fd);
 	if (p) return p->workDir;
 	else return NULL;
 }
 
-int getDataModeByfd(int fd) {
+int getDataMode(int fd) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;
@@ -140,7 +128,7 @@ int getDataModeByfd(int fd) {
 	return -1;
 }
 
-int getIpAddrNPortByfd(int fd, char* ipAddr, int* port) {
+int getIpAddrNPort(int fd, char* ipAddr, int* port) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;
@@ -153,7 +141,7 @@ int getIpAddrNPortByfd(int fd, char* ipAddr, int* port) {
 	return -1;
 }
 
-void setPasswordByfd(int fd, char* password) {
+void setPassword(int fd, char* password) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;
@@ -165,7 +153,7 @@ void setPasswordByfd(int fd, char* password) {
 	}
 }
 
-void clearDataConnByfd(int fd) {
+void clearDataConn(int fd) {
 	struct Client* p = getClientHead();
 	while (p->next) {
 		p = p->next;

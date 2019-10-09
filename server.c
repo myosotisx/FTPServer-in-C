@@ -44,8 +44,8 @@ struct Client* getClientHead() {
 	return head;
 }
 
-struct Client* deleteClientByfd(int fd) {
-	struct Client* client = getClientByfd(fd);
+struct Client* deleteClient(int fd) {
+	struct Client* client = getClient(fd);
 	
 	if (!client) return NULL;
 	close(client->dataConnfd);
@@ -84,7 +84,7 @@ int enterPassiveMode(int userfd, char* ipAddr, int* port) {
 	strcpy(ipAddr, "0.0.0.0");
 	*port = 57302;
 
-	struct Client* client = getClientByfd(userfd);
+	struct Client* client = getClient(userfd);
 	if (!client) return -1;
 	if (client->dataListenfd != -1) {
 		close(client->dataConnfd);
@@ -104,7 +104,7 @@ int enterPassiveMode(int userfd, char* ipAddr, int* port) {
 }
 
 int enterPortMode(int userfd, char* ipAddr, int port) {
-	struct Client* client = getClientByfd(userfd);
+	struct Client* client = getClient(userfd);
 	if (!client) return -1;
 	client->mode = 0;
 	memset(client->ipAddr, 0, sizeof(client->ipAddr));
@@ -149,17 +149,17 @@ void processClientConn() {
 				if (res == -1) {
 					// 用户连接非正常关闭，服务器层负责删除用户
 					printf(errorConnShutDown, p->fd);
-					p = deleteClientByfd(p->fd);
+					p = deleteClient(p->fd);
 				}
 				else if (res == -2) {
 					printf(promptClientClose, p->fd);
-					p = deleteClientByfd(p->fd);
+					p = deleteClient(p->fd);
 				}
 			}
 			else {
 				// 用户连接非正常关闭，服务器层负责删除用户
 				printf(errorConnShutDown, p->fd);
-				p = deleteClientByfd(p->fd);
+				p = deleteClient(p->fd);
 			}
 		}
 	}
@@ -170,7 +170,7 @@ void processClientConn() {
 			printf(promptNewConn, latestfd);
 			addClient(latestfd);
 			// response with 220
-			response2Client(latestfd, 220);
+			response(latestfd, 220);
 		}
 		else printf(errorClientConn);
 	}

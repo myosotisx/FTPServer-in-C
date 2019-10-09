@@ -50,49 +50,49 @@ const char* getResponse(int code) {
 }
 
 int handleUSER(int fd, char* param) {
-    setUsernameByfd(fd, param);
+    setUsername(fd, param);
 	// response with 331
-	return response2Client(fd, 331);
+	return response(fd, 331);
 }
 
 int handlePASS(int fd, char* param) {
     // check username
-    if (!strcmp(getUsernameByfd(fd), "anonymous")) {
-        setPasswordByfd(fd, param);
+    if (!strcmp(getUsername(fd), "anonymous")) {
+        setPassword(fd, param);
         // response with 230
-	    return response2Client(fd, 230);
+	    return response(fd, 230);
     }
     else {
         // response with 530
-        return response2Client(fd, 530);
+        return response(fd, 530);
     }
 }
 
 int handleQUIT(int fd) {
     // response with 221
-	if (response2Client(fd, 221) == -1) return -1;
+	if (response(fd, 221) == -1) return -1;
     else return -2;
 }
 
 int handleABOR(int fd) {
     // response with 221 same as QUIT
-    if (response2Client(fd, 221) == -1) return -1;
+    if (response(fd, 221) == -1) return -1;
     else return -2;
 }
 
 int handleSYST(int fd) {
     // response with 215
-    return response2Client(fd, 215);
+    return response(fd, 215);
 }
 
 int handleTYPE(int fd, char* param) {
     if (!strcmp(param, "I")) {
         sprintf(response200, "200 TYPE set to I.\r\n");
         // response with 200
-        return response2Client(fd, 200);
+        return response(fd, 200);
     }
     // response with 504
-    else return response2Client(fd, 504);
+    else return response(fd, 504);
 }
 
 int handlePORT(int fd, char* param) {
@@ -100,10 +100,10 @@ int handlePORT(int fd, char* param) {
     int port;
     parseIpAddrNPort(param, ipAddr, &port);
     // response with 425
-    if (enterPortMode(fd, ipAddr, port) == -1) return response2Client(fd, 425);
+    if (enterPortMode(fd, ipAddr, port) == -1) return response(fd, 425);
     sprintf(response200, "200 PORT command sccessful.\r\n");
     // response with 200
-    if (response2Client(fd, 200) == -1) return -1;
+    if (response(fd, 200) == -1) return -1;
     else return 1;
 }
 
@@ -118,10 +118,10 @@ int handlePASV(int fd) {
         strReplace(ipAddr, '.', ',');
         sprintf(response227, "227 Entering Passive Mode (%s,%d,%d)\r\n", ipAddr, p1, p2);
         // response with 227
-        return response2Client(fd, 227);
+        return response(fd, 227);
     }
     // response with 425
-    else return response2Client(fd, 425);
+    else return response(fd, 425);
 }
 
 int handleRETR(int fd, char* param) {
@@ -132,57 +132,57 @@ int handleRETR(int fd, char* param) {
     if (file) {
         sprintf(response150, "150 Opening BINARY mode data connection for %s (%u bytes).\r\n", param, getFileSize(file));
         // response with 150
-        if (response2Client(fd, 150) == -1) {
+        if (response(fd, 150) == -1) {
             fclose(file);
             return -1;
         }
 
-        if (getDataModeByfd(fd) == 0) {
+        if (getDataMode(fd) == 0) {
             // PORT mode
-            if (setupDataConnByfd(fd) == -1) {
+            if (setupDataConn(fd) == -1) {
                 fclose(file);
                 // response with 425
-                return response2Client(fd, 425);
+                return response(fd, 425);
             }
-            setClientTransferByfd(fd, 1);
+            setClientTransfer(fd, 1);
             if (writeFile(fd, file) == -1) {
-                closeDataConnByfd(fd);
-                setClientTransferByfd(fd, 0);
+                closeDataConn(fd);
+                setClientTransfer(fd, 0);
                 fclose(file);
                 // response with 426
-                return response2Client(fd, 426);
+                return response(fd, 426);
             }
-            closeDataConnByfd(fd);
-            setClientTransferByfd(fd, 0);
+            closeDataConn(fd);
+            setClientTransfer(fd, 0);
             fclose(file);
-            return response2Client(fd, 226);
+            return response(fd, 226);
         }
-        else if (getDataModeByfd(fd) == 1) {
+        else if (getDataMode(fd) == 1) {
             // PASV mode
-            if (getDataConnfdByfd(fd) == -1 || getDataListenfdByfd(fd) == -1) {
+            if (getDataConnfd(fd) == -1 || getDataListenfd(fd) == -1) {
                 fclose(file);
                 // response with 425
-                return response2Client(fd, 425);
+                return response(fd, 425);
             }
-            setClientTransferByfd(fd, 1);
+            setClientTransfer(fd, 1);
             if (writeFile(fd, file) == -1) {
-                closeDataConnByfd(fd);
-                setClientTransferByfd(fd, 0);
+                closeDataConn(fd);
+                setClientTransfer(fd, 0);
                 fclose(file);
                 // response with 426
-                return response2Client(fd, 426);
+                return response(fd, 426);
             }
-            closeDataConnByfd(fd);
-            setClientTransferByfd(fd, 0);
+            closeDataConn(fd);
+            setClientTransfer(fd, 0);
             fclose(file); 
-            return response2Client(fd, 226);
+            return response(fd, 226);
         }
         // response with 425
-        else return response2Client(fd, 425);
+        else return response(fd, 425);
     }
     else {
         // response with 451
-        return response2Client(fd, 451);
+        return response(fd, 451);
     }
     
 }
@@ -190,7 +190,7 @@ int handleRETR(int fd, char* param) {
 int handlePWD(int fd) {
     sprintf(response257, "257 \"%s\" is your current location.\r\n", getWorkDir(fd));
     // response with 257
-    return response2Client(fd, 257);
+    return response(fd, 257);
 }
 
 int validCmd(char* cmd) {
@@ -215,6 +215,6 @@ int cmdMapper(int fd, char* cmd, char* param) {
     else if (!strcmp(cmd, "PWD")) return handlePWD(fd);
 	else {
 		// response with 500
-		return response2Client(fd, 500);
+		return response(fd, 500);
 	}
 }

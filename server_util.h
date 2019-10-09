@@ -20,31 +20,29 @@ struct Client* destroyClient(struct Client* client);
 
 struct Client* destroyClientByfd(int fd);
 
-struct Client* getClientByfd(int fd);
+struct Client* getClient(int fd);
 
-int ready2RetriveByfd(int fd);
+int getDataConnfd(int fd);
 
-int getDataConnfdByfd(int fd);
+int getDataListenfd(int fd);
 
-int getDataListenfdByfd(int fd);
+int getIpAddrNPort(int fd, char* ipAddr, int* port);
 
-int getIpAddrNPortByfd(int fd, char* ipAddr, int* port);
+void setClientTransfer(int fd, int flag);
 
-void setClientTransferByfd(int fd, int flag);
+void setDataConnfd(int fd, int sockfd);
 
-void setDataConnfdByfd(int fd, int sockfd);
+void setUsername(int fd, char* username);
 
-void setUsernameByfd(int fd, char* username);
+void clearDataConn(int fd);
 
-void clearDataConnByfd(int fd);
+char* getUsername(int fd);
 
-char* getUsernameByfd(int fd);
-
-int getDataModeByfd(int fd);
+int getDataMode(int fd);
 
 const char* getWorkDir(int fd);
 
-void setPasswordByfd(int fd, char* password);
+void setPassword(int fd, char* password);
 
 void printClient();
 
@@ -76,7 +74,7 @@ void getCmdNParam(char* request, char* cmd, char* param);
 
 char* getFilePath(int fd, char* path, char* fileName);
 
-int response2Client(int fd, int code);
+int response(int fd, int code);
 
 int receiveFromClient(int fd, char* reqBuf, char* cmd, char* param);
 
@@ -86,9 +84,9 @@ void parseIpAddrNPort(char* param, char* ipAddr, int* port);
 
 int acceptNewConn(int listenfd);
 
-int setupDataConnByfd(int fd);
+int setupDataConn(int fd);
 
-void closeDataConnByfd(int fd);
+void closeDataConn(int fd);
 
 
 

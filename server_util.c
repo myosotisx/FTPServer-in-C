@@ -57,7 +57,7 @@ int writeBuf(int sockfd, const void* buf, int len) {
 int writeFile(int fd, FILE* file) {
 	unsigned char fileBuf[MAXBUF];
 	int len;
-	int dataConnfd = getDataConnfdByfd(fd);
+	int dataConnfd = getDataConnfd(fd);
 	while ((len = fread(fileBuf, sizeof(unsigned char), MAXBUF, file))) {
 		if (writeBuf(dataConnfd, fileBuf, MAXBUF) == -1) return -1;
 	}
@@ -120,7 +120,7 @@ void getCmdNParam(char* request, char* cmd, char* param) {
 	}
 }
 
-int response2Client(int fd, int code) {
+int response(int fd, int code) {
 	const char* response = getResponseByCode(code);
 	return writeBuf(fd, response, strlen(response));
 }
@@ -155,11 +155,11 @@ int acceptNewConn(int listenfd) {
 	else return newfd;
 }
 
-int setupDataConnByfd(int fd) {
+int setupDataConn(int fd) {
 	char ipAddr[32];
 	int port;
 	memset(ipAddr, 0, 32);
-	if (getIpAddrNPortByfd(fd, ipAddr, &port) == -1) return -1;
+	if (getIpAddrNPort(fd, ipAddr, &port) == -1) return -1;
 
 	printf("ipAddr: %s port: %d\r\n", ipAddr, port);
 
@@ -197,16 +197,16 @@ int setupDataConnByfd(int fd) {
 		return -1;
 	}
 
-	setDataConnfdByfd(fd, sockfd);
+	setDataConnfd(fd, sockfd);
 
 	return 1;
 }
 
-void closeDataConnByfd(int fd) {
+void closeDataConn(int fd) {
 	int dataConnfd, dataListenfd;
-	close(getDataListenfdByfd(fd));
-	close(getDataConnfdByfd(fd));
-	clearDataConnByfd(fd);
+	close(getDataListenfd(fd));
+	close(getDataConnfd(fd));
+	clearDataConn(fd);
 }
 
 char* getFilePath(int fd, char* path, char* fileName) {
