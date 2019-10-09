@@ -14,6 +14,7 @@ struct Client {
 	char ipAddr[32];
 	char username[MAXBUF];
 	char password[MAXBUF];
+	char workDir[MAXPATH];
 	int bytesRecv;
 	struct Client* prev;
 	struct Client* next;

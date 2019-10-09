@@ -42,6 +42,8 @@ char* getUsernameByfd(int fd);
 
 int getDataModeByfd(int fd);
 
+const char* getWorkDir(int fd);
+
 void setPasswordByfd(int fd, char* password);
 
 void printClient();
@@ -72,7 +74,7 @@ int setupListen(char* ipAddr, short port);
 
 void getCmdNParam(char* request, char* cmd, char* param);
 
-void getFilePath(char* path, char* param);
+char* getFilePath(int fd, char* path, char* fileName);
 
 int response2Client(int fd, int code);
 

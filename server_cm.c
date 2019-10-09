@@ -9,6 +9,8 @@
 struct Client* initClient(struct Client* client, int fd, struct Client* prev, struct Client* next) {
 	memset(client, 0, sizeof(struct Client));
 	memset(client->ipAddr, 0, 32);
+	memset(client->workDir, 0, MAXPATH);
+	strcpy(client->workDir, "/");
 	client->fd = fd;
 	client->dataListenfd = -1;
 	client->dataConnfd = -1;
@@ -121,6 +123,12 @@ char* getUsernameByfd(int fd) {
 		if (p->fd == fd) return p->username;
 	}
 	return NULL;
+}
+
+const char* getWorkDir(int fd) {
+	struct Client* p = getClientByfd(fd);
+	if (p) return p->workDir;
+	else return NULL;
 }
 
 int getDataModeByfd(int fd) {

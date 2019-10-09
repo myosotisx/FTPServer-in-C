@@ -15,6 +15,7 @@ const char response221[] = "221-Thanks for using my FTP service.\r\n221 Goodbye.
 const char response226[] = "226 Transfer complete.\r\n";
 char response227[MAXRES];
 const char response230[] = "230-\r\n230-Welcome to stx's FTP server!\r\n230-You can download what ever you want here.\r\n230-\r\n230 Guest login ok, access restrictions apply.\r\n";
+char response257[MAXRES];
 const char response331[] = "331 Please send your complete e-mail address as password.\r\n";
 const char response332[] = "332 Please send your username to log in (only support \"anonymous\" now).\r\n";
 const char response425[] = "425 No data connection established!\r\n";
@@ -35,6 +36,7 @@ const char* getResponse(int code) {
         case 226: return response226;
         case 227: return response227;
         case 230: return response230;
+        case 257: return response257;
         case 331: return response331;
         case 332: return response332;
         case 425: return response425;
@@ -124,7 +126,7 @@ int handlePASV(int fd) {
 
 int handleRETR(int fd, char* param) {
     char path[MAXPATH];
-    getFilePath(path, param);
+    getFilePath(fd, path, param);
     
     FILE* file = fopen(path, "rb");
     if (file) {
@@ -185,6 +187,12 @@ int handleRETR(int fd, char* param) {
     
 }
 
+int handlePWD(int fd) {
+    sprintf(response257, "257 \"%s\" is your current location.\r\n", getWorkDir(fd));
+    // response with 257
+    return response2Client(fd, 257);
+}
+
 int validCmd(char* cmd) {
     if (strcmp(cmd, "USER")
         && strcmp(cmd, "PASS")
@@ -204,6 +212,7 @@ int cmdMapper(int fd, char* cmd, char* param) {
     else if (!strcmp(cmd, "PORT")) return handlePORT(fd, param);
     else if (!strcmp(cmd, "PASV")) return handlePASV(fd);
     else if (!strcmp(cmd, "RETR")) return handleRETR(fd, param);
+    else if (!strcmp(cmd, "PWD")) return handlePWD(fd);
 	else {
 		// response with 500
 		return response2Client(fd, 500);

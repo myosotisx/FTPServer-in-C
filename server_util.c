@@ -13,7 +13,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-char rootPath[MAXPATH] = "FTPFile/";
+char rootPath[MAXPATH] = "FTPFile";
+char userPath[MAXPATH] = "/";
 
 int readBuf(int sockfd, void* buf) {
 	int readLen;
@@ -39,7 +40,6 @@ int readBuf(int sockfd, void* buf) {
 }
 
 int writeBuf(int sockfd, const void* buf, int len) {
-	// printf("Debug Info: write to fd: %d\r\n", sockfd);
 	int writeLen;
 	int p = 0;
 	while (p < len) {
@@ -209,10 +209,13 @@ void closeDataConnByfd(int fd) {
 	clearDataConnByfd(fd);
 }
 
-void getFilePath(char* path, char* param) {
+char* getFilePath(int fd, char* path, char* fileName) {
 	memset(path, 0, MAXPATH);
 	strcpy(path, rootPath);
-	strcat(path, param);
+	strcat(path, getWorkDir(fd));
+	strcat(path, "/");
+	strcat(path, fileName);
+	return path;
 }
 
 void strReplace(char* str, char oldc, char newc) {
