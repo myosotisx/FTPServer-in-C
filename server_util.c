@@ -255,6 +255,66 @@ void parseIpAddrNPort(char* param, char* ipAddr, int* port) {
 	
 }
 
+char* getRealPath(int fd, char* realPath, const char* path) {
+	char dirName[MAXPATH];
+	memset(realPath, 0, MAXPATH);
+	// int rsep = 0;
+	// int t = 0;
+	int p, q;
+	if (path[0] == '/') {
+		// 绝对路径
+		p = 1, q = 1;
+		strcat(realPath, "/");
+	}
+	else {
+		p = 0, q = 0;
+		strcat(realPath, getWorkDir(fd));
+	}
+	int rsep = strrchr(realPath, '/')-realPath;
+	int t = strlen(realPath)-1;
+	int len = strlen(path);
+	while (q < len) {
+		if (path[q] == '/') {
+			memset(dirName, 0, MAXPATH);
+			strncpy(dirName, path+p, q-p);
+			// printf("dirName: %s\r\n", dirName);
+			if (!strcmp(dirName, "..")) {
+				if (t) {
+					t = rsep-1 > 0 ? rsep-1 : 0;
+					realPath[t+1] = 0;
+					rsep = strrchr(realPath, '/')-realPath;
+				}
+			}
+			else if (strcmp(dirName, "")) {
+				if (t) {
+					strcat(realPath, "/");
+					rsep = t+1;
+				}
+				strcat(realPath, dirName);
+				t = strlen(realPath)-1;
+			}
+			p = q+1;
+			// printf("realPath: %s\r\n", realPath);
+		}
+		q++;
+	}
+	if (path[len-1] != '/') {
+		memset(dirName, 0, MAXPATH);
+		strncpy(dirName, path+p, len-p);
+		if (!strcmp(dirName, "..")) {
+			if (t) {
+				t = rsep-1 > 0 ? rsep-1 : 0;
+				realPath[t+1] = 0;	
+			}
+		}
+		else {
+			if (t) strcat(realPath, "/");
+			strcat(realPath, dirName);
+		}
+	}
+	return realPath;
+}
+
 char* getFormatPath(char* formatPath, const char* path) {
 	memset(formatPath, 0, MAXPATH);
 	int p = 0;
@@ -268,6 +328,35 @@ char* getFormatPath(char* formatPath, const char* path) {
 		else formatPath[p++] = path[i];
 	}
 	return formatPath;
+}
+
+int removeAll(const char* path) {
+	printf("Debug Info: path 2 remove: %s\r\n", path);
+	DIR* dir;
+	DIR* dirin;
+	struct dirent* dirp;
+	char pathname[MAXPATH];
+	if (!(dir = opendir(path))) {
+		return -1;
+	}
+	else {
+		while ((dirp = readdir(dir))) {
+			if (!strcmp(dirp->d_name, ".") || !strcmp(dirp->d_name, "..")) continue;
+			memset(pathname, 0, MAXPATH);
+			strcpy(pathname, path);
+			strcat(pathname, "/");
+			strcat(pathname, dirp->d_name);
+			printf("d_name: %s\r\n", dirp->d_name);
+			if ((dirin = opendir(pathname))) {
+				removeAll(pathname);
+				closedir(dirin);
+			}
+			else remove(pathname);
+		}
+		rmdir(path);
+		closedir(dir);
+		return 1;
+	}
 }
 
 int makeDir(int fd, const char* path) {
@@ -286,69 +375,30 @@ int makeDir(int fd, const char* path) {
 }
 
 int changeWorkDir(int fd, const char* path) {
+	DIR* dir;
 	char nWorkDir[MAXPATH];
-	char dirName[MAXPATH];
-	memset(nWorkDir, 0, MAXPATH);
-	// int rsep = 0;
-	// int t = 0;
-	int p, q;
-	if (path[0] == '/') {
-		// 绝对路径
-		p = 1, q = 1;
-		strcat(nWorkDir, "/");
+	char relPath[MAXPATH]; // 相对可执行程序的路径
+	getRealPath(fd, nWorkDir, path);
+	memset(relPath, 0, MAXPATH);
+	strcpy(relPath, rootPath);
+	strcat(relPath, nWorkDir);
+	if ((dir = opendir(relPath)) && setWorkDir(fd, nWorkDir) != -1) {
+		closedir(dir);
+		return 1;
 	}
-	else {
-		p = 0, q = 0;
-		strcat(nWorkDir, getWorkDir(fd));
-	}
-	int rsep = strrchr(nWorkDir, '/')-nWorkDir;
-	int t = strlen(nWorkDir)-1;
-	int len = strlen(path);
-	while (q < len) {
-		if (path[q] == '/') {
-			memset(dirName, 0, MAXPATH);
-			strncpy(dirName, path+p, q-p);
-			// printf("dirName: %s\r\n", dirName);
-			if (!strcmp(dirName, "..")) {
-				if (t) {
-					t = rsep-1 > 0 ? rsep-1 : 0;
-					nWorkDir[t+1] = 0;
-					rsep = strrchr(nWorkDir, '/')-nWorkDir;
-				}
-			}
-			else if (strcmp(dirName, "")) {
-				if (t) {
-					strcat(nWorkDir, "/");
-					rsep = t+1;
-				}
-				strcat(nWorkDir, dirName);
-				t = strlen(nWorkDir)-1;
-			}
-			p = q+1;
-			// printf("nWorkDir: %s\r\n", nWorkDir);
-		}
-		q++;
-	}
-	if (path[len-1] != '/') {
-		memset(dirName, 0, MAXPATH);
-		strncpy(dirName, path+p, len-p);
-		if (!strcmp(dirName, "..")) {
-			if (t) {
-				t = rsep-1 > 0 ? rsep-1 : 0;
-				nWorkDir[t+1] = 0;	
-			}
-		}
-		else {
-			if (t) strcat(nWorkDir, "/");
-			strcat(nWorkDir, dirName);
-		}
-	}
-	
-	
-	char realPath[MAXPATH];
-	memset(realPath, 0, MAXPATH);
-	strcpy(realPath, rootPath);
-	strcat(realPath, nWorkDir);
-	if (opendir(realPath) && setWorkDir(fd, nWorkDir) != -1) return 1;
 	else return -1;
+}
+
+int removeDir(int fd, const char* path) {
+	char realPath[MAXPATH];
+	char relPath[MAXPATH]; // 相对可执行程序的路径
+	getRealPath(fd, realPath, path);
+	if (!strcmp(realPath, "/")) {
+		// 禁止用户删除根目录
+		return -1;
+	}
+	memset(relPath, 0, MAXPATH);
+	strcpy(relPath, rootPath);
+	strcat(relPath, realPath);
+	return removeAll(relPath);
 }

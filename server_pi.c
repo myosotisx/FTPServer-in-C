@@ -215,9 +215,21 @@ int handleMKD(int fd, char* param) {
 
 int handleCWD(int fd, char* param) {
     if (changeWorkDir(fd, param) != -1) {
-        sprintf(response250, "250 OK. Current directory is %s\r\n", getWorkDir(fd));
+        char formatPath[MAXPATH];
+        getFormatPath(formatPath, getWorkDir(fd));
+        sprintf(response250, "250 OK. Current directory is %s\r\n", formatPath);
         // response with 250
         return response(fd, 250);
+    }
+    else {
+        // response with 550
+        return response(fd, 550);
+    }
+}
+
+int handleRMD(int fd, char* param) {
+    if (removeDir(fd, param) != -1) {
+        return 1;
     }
     else {
         // response with 550
@@ -247,6 +259,7 @@ int cmdMapper(int fd, char* cmd, char* param) {
     else if (!strcmp(cmd, "PWD")) return handlePWD(fd);
     else if (!strcmp(cmd, "MKD")) return handleMKD(fd, param);
     else if (!strcmp(cmd, "CWD")) return handleCWD(fd, param);
+    else if (!strcmp(cmd, "RMD")) return handleRMD(fd, param);
 	else {
 		// response with 500
 		return response(fd, 500);

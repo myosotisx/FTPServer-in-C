@@ -92,6 +92,10 @@ void closeDataConn(int fd);
 
 char* getFormatPath(char* formatPath, const char* path);
 
+char* getRealPath(int fd, char* realPath, const char* path);
+
 int makeDir(int fd, const char* path);
+
+int removeDir(int fd, const char* path);
 
 int changeWorkDir(int fd, const char* path);
