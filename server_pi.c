@@ -229,7 +229,9 @@ int handleCWD(int fd, char* param) {
 
 int handleRMD(int fd, char* param) {
     if (removeDir(fd, param) != -1) {
-        return 1;
+        sprintf(response250, "250 The directory was successfully removed.\r\n");
+        // response with 250
+        return response(fd, 250);
     }
     else {
         // response with 550
