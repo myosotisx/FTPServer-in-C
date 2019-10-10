@@ -68,6 +68,8 @@ int writeBuf(int sockfd, const void* buf, int len);
 
 int writeFile(int fd, FILE* file);
 
+int copyFile(const char* oPath, const char* nPath);
+
 unsigned int getFileSize(FILE* file);
 
 int setupListen(char* ipAddr, short port);
@@ -92,10 +94,18 @@ void closeDataConn(int fd);
 
 char* getFormatPath(char* formatPath, const char* path);
 
-char* getRealPath(int fd, char* realPath, const char* path);
+char* getClientAbsPath(int fd, char* cAbsPath, const char* path);
+
+char* getServerRelPath(int fd, char* sRelPath, const char* path);
 
 int makeDir(int fd, const char* path);
 
 int removeDir(int fd, const char* path);
 
 int changeWorkDir(int fd, const char* path);
+
+int fileExist(const char* path);
+
+int setFile2Rename(int fd, const char* path);
+
+int renameFile(int fd, const char* oPath, const char* nPath);

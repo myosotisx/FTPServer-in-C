@@ -19,6 +19,7 @@ char response250[MAXRES];
 char response257[MAXRES];
 const char response331[] = "331 Please send your complete e-mail address as password.\r\n";
 const char response332[] = "332 Please send your username to log in (only support \"anonymous\" now).\r\n";
+const char response350[] = "350 RNFR accepted - file exists, ready for destination.\r\n";
 const char response425[] = "425 No data connection established!\r\n";
 const char response426[] = "426 Data connection is broken!\r\n";
 const char response451[] = "451 Fail to open file!\r\n";
@@ -42,6 +43,7 @@ const char* getResponse(int code) {
         case 257: return response257;
         case 331: return response331;
         case 332: return response332;
+        case 350: return response350;
         case 425: return response425;
         case 426: return response426;
         case 451: return response451;
@@ -239,6 +241,29 @@ int handleRMD(int fd, char* param) {
     }
 }
 
+int handleRNFR(int fd, char* param) {
+    if (setFile2Rename(fd, param) != -1) {
+        // response with 350
+        return response(fd, 350);
+    }
+    else {
+        // response with 550
+        return response(fd, 550);
+    }
+}
+
+int handleRNTO(int fd, char* param) {
+    if (renameFile(fd, "", param) != -1) {
+        sprintf(response250, "250 File successfully renamed or moved.\r\n");
+        // response with 250
+        return response(fd, 250);
+    }
+    else {
+        // response with 550
+        return response(fd, 550);
+    }
+}
+
 int validCmd(char* cmd) {
     if (strcmp(cmd, "USER")
         && strcmp(cmd, "PASS")
@@ -262,6 +287,8 @@ int cmdMapper(int fd, char* cmd, char* param) {
     else if (!strcmp(cmd, "MKD")) return handleMKD(fd, param);
     else if (!strcmp(cmd, "CWD")) return handleCWD(fd, param);
     else if (!strcmp(cmd, "RMD")) return handleRMD(fd, param);
+    else if (!strcmp(cmd, "RNFR")) return handleRNFR(fd, param);
+    else if (!strcmp(cmd, "RNTO")) return handleRNTO(fd, param);
 	else {
 		// response with 500
 		return response(fd, 500);

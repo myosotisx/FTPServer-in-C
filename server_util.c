@@ -19,6 +19,8 @@
 char rootPath[MAXPATH] = "FTPFile";
 char userPath[MAXPATH] = "/";
 
+char file2Rename[MAXPATH];
+
 int readBuf(int sockfd, void* buf) {
 	int readLen;
 	int p = 0, bufp = 0;
@@ -64,6 +66,24 @@ int writeFile(int fd, FILE* file) {
 	while ((len = fread(fileBuf, sizeof(unsigned char), MAXBUF, file))) {
 		if (writeBuf(dataConnfd, fileBuf, MAXBUF) == -1) return -1;
 	}
+	return 1;
+}
+
+int copyFile(const char* oPath, const char* nPath) {
+	printf("%s %s\r\n", oPath, nPath);
+	FILE* infile;
+	FILE* outfile;
+	infile = fopen(oPath, "rb");
+	outfile = fopen(nPath, "wb");
+	if (!infile || !outfile) return -1;
+	unsigned char fileBuf[MAXBUF];
+	int len = 0;
+	while ((len = fread(fileBuf, sizeof(unsigned char), MAXBUF, infile))) {
+		fwrite(fileBuf, sizeof(unsigned char), len, outfile);
+	}
+	printf("len: %d\r\n", len);
+	fclose(infile);
+	fclose(outfile);
 	return 1;
 }
 
@@ -255,23 +275,23 @@ void parseIpAddrNPort(char* param, char* ipAddr, int* port) {
 	
 }
 
-char* getRealPath(int fd, char* realPath, const char* path) {
+char* getClientAbsPath(int fd, char* cAbsPath, const char* path) {
 	char dirName[MAXPATH];
-	memset(realPath, 0, MAXPATH);
+	memset(cAbsPath, 0, MAXPATH);
 	// int rsep = 0;
 	// int t = 0;
 	int p, q;
 	if (path[0] == '/') {
 		// 绝对路径
 		p = 1, q = 1;
-		strcat(realPath, "/");
+		strcat(cAbsPath, "/");
 	}
 	else {
 		p = 0, q = 0;
-		strcat(realPath, getWorkDir(fd));
+		strcat(cAbsPath, getWorkDir(fd));
 	}
-	int rsep = strrchr(realPath, '/')-realPath;
-	int t = strlen(realPath)-1;
+	int rsep = strrchr(cAbsPath, '/')-cAbsPath;
+	int t = strlen(cAbsPath)-1;
 	int len = strlen(path);
 	while (q < len) {
 		if (path[q] == '/') {
@@ -281,20 +301,19 @@ char* getRealPath(int fd, char* realPath, const char* path) {
 			if (!strcmp(dirName, "..")) {
 				if (t) {
 					t = rsep-1 > 0 ? rsep-1 : 0;
-					realPath[t+1] = 0;
-					rsep = strrchr(realPath, '/')-realPath;
+					cAbsPath[t+1] = 0;
+					rsep = strrchr(cAbsPath, '/')-cAbsPath;
 				}
 			}
-			else if (strcmp(dirName, "")) {
+			else if (strcmp(dirName, "") && strcmp(dirName, ".")) {
 				if (t) {
-					strcat(realPath, "/");
+					strcat(cAbsPath, "/");
 					rsep = t+1;
 				}
-				strcat(realPath, dirName);
-				t = strlen(realPath)-1;
+				strcat(cAbsPath, dirName);
+				t = strlen(cAbsPath)-1;
 			}
 			p = q+1;
-			// printf("realPath: %s\r\n", realPath);
 		}
 		q++;
 	}
@@ -304,15 +323,24 @@ char* getRealPath(int fd, char* realPath, const char* path) {
 		if (!strcmp(dirName, "..")) {
 			if (t) {
 				t = rsep-1 > 0 ? rsep-1 : 0;
-				realPath[t+1] = 0;	
+				cAbsPath[t+1] = 0;	
 			}
 		}
-		else {
-			if (t) strcat(realPath, "/");
-			strcat(realPath, dirName);
+		else if (strcmp(dirName, "") && strcmp(dirName, ".")) {
+			if (t) strcat(cAbsPath, "/");
+			strcat(cAbsPath, dirName);
 		}
 	}
-	return realPath;
+	return cAbsPath;
+}
+
+char* getServerRelPath(int fd, char* sRelPath, const char* path) {
+	memset(sRelPath, 0 ,MAXPATH);
+	char cAbsPath[MAXPATH];
+	getClientAbsPath(fd, cAbsPath, path);
+	strcpy(sRelPath, rootPath);
+	strcat(sRelPath, cAbsPath);
+	return sRelPath;
 }
 
 char* getFormatPath(char* formatPath, const char* path) {
@@ -377,12 +405,12 @@ int makeDir(int fd, const char* path) {
 int changeWorkDir(int fd, const char* path) {
 	DIR* dir;
 	char nWorkDir[MAXPATH];
-	char relPath[MAXPATH]; // 相对可执行程序的路径
-	getRealPath(fd, nWorkDir, path);
-	memset(relPath, 0, MAXPATH);
-	strcpy(relPath, rootPath);
-	strcat(relPath, nWorkDir);
-	if ((dir = opendir(relPath)) && setWorkDir(fd, nWorkDir) != -1) {
+	char sRelPath[MAXPATH]; // 相对可执行程序的路径
+	getClientAbsPath(fd, nWorkDir, path);
+	memset(sRelPath, 0, MAXPATH);
+	strcpy(sRelPath, rootPath);
+	strcat(sRelPath, nWorkDir);
+	if ((dir = opendir(sRelPath)) && setWorkDir(fd, nWorkDir) != -1) {
 		closedir(dir);
 		return 1;
 	}
@@ -390,15 +418,62 @@ int changeWorkDir(int fd, const char* path) {
 }
 
 int removeDir(int fd, const char* path) {
-	char realPath[MAXPATH];
-	char relPath[MAXPATH]; // 相对可执行程序的路径
-	getRealPath(fd, realPath, path);
-	if (!strcmp(realPath, "/")) {
+	char cAbsPath[MAXPATH];
+	char sRelPath[MAXPATH]; // 相对可执行程序的路径
+	getClientAbsPath(fd, cAbsPath, path);
+	if (!strcmp(cAbsPath, "/")) {
 		// 禁止用户删除根目录
 		return -1;
 	}
-	memset(relPath, 0, MAXPATH);
-	strcpy(relPath, rootPath);
-	strcat(relPath, realPath);
-	return removeAll(relPath);
+	memset(sRelPath, 0, MAXPATH);
+	strcpy(sRelPath, rootPath);
+	strcat(sRelPath, cAbsPath);
+	return removeAll(sRelPath);
+}
+
+int fileExist(const char* path) {
+	FILE* file;
+	if ((file = fopen(path, "rb"))) {
+		fclose(file);
+		return 1;
+	}
+	else return 0;
+}
+
+int pathExist(const char* path) {
+	DIR* dir;
+	if ((dir = opendir(path))) {
+		closedir(dir);
+		return 1;
+	}
+	else return 0;
+}
+
+int renameFile(int fd, const char* oPath, const char* nPath) {
+	char sRelPath[MAXPATH];
+	if (strcmp(oPath, "") && setFile2Rename(fd, oPath) == -1) {
+		return -1;
+	}
+	// 将要修改的文件名已经存进file2Rename
+	getServerRelPath(fd, sRelPath, nPath);
+	// return copyFile(file2Rename, sRelPath);
+	if (copyFile(file2Rename, sRelPath) != -1) {
+		remove(file2Rename);
+		memset(file2Rename, 0, MAXPATH);
+		return 1;
+	}
+	else return -1;
+}
+
+int setFile2Rename(int fd, const char* path) {
+	// char cAbsPath[MAXPATH];
+	char sRelPath[MAXPATH];
+	getServerRelPath(fd, sRelPath, path);
+	printf("sRelPath: %s\r\n", sRelPath);
+	if (fileExist(sRelPath)) {
+		memset(file2Rename, 0, MAXPATH);
+		strcpy(file2Rename, sRelPath);
+		return 1;
+	}
+	else return -1;
 }
