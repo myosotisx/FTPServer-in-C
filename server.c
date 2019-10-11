@@ -162,7 +162,7 @@ void processClientConn() {
 			char cmd[MAXBUF];
 			char param[MAXBUF];
 			if(receiveFromClient(p->fd, reqBuf, cmd, param) != -1) {
-				int res = cmdMapper(p->fd, cmd, param);
+				cmdMapper(p->fd, cmd, param);
 				/*if (res == -1) {
 					// 用户连接非正常关闭，服务器层负责删除用户
 					printf(errorConnShutDown, p->fd);

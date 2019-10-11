@@ -29,8 +29,6 @@ int getDataListenfd(int fd);
 
 int getIpAddrNPort(int fd, char* ipAddr, int* port);
 
-void setClientTransfer(int fd, int flag);
-
 void setDataConnfd(int fd, int sockfd);
 
 void setUsername(int fd, char* username);

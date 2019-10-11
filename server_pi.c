@@ -65,7 +65,7 @@ void* transferFile(void* _fd) {
 		if ((writeLen = writeBuf(dataConnfd, fileBuf, MAXBUF)) == -1) break;
 	}
     closeDataConn(fd);
-	setClientTransfer(fd, 0);
+	setClientState(fd, 1);
     fclose(file);
 	int res;
 	// response with 426
@@ -185,23 +185,10 @@ int handleRETR(int fd, char* param) {
             // response with 425
             return response(fd, 425);
         }
-        /*setClientTransfer(fd, 1);
-        if (writeFile(fd, file) == -1) {
-            closeDataConn(fd);
-            setClientTransfer(fd, 0);
-            fclose(file);
-            // response with 426
-            return response(fd, 426);
-        }
-        closeDataConn(fd);
-        setClientTransfer(fd, 0);
-        fclose(file);
-        return response(fd, 226);*/
-        setClientTransfer(fd, 1);
         setReservedPtr(fd, 0, file);
         pthread_t transThread;
         pthread_create(&transThread, NULL, (void*)transferFile, &fd);
-        return 1;
+        return 2;
     }
     else {
         // response with 451
@@ -323,6 +310,10 @@ int cmdMapper(int fd, char* cmd, char* param) {
     printf("Debug Info in PI: cmd is %s and param is %s\r\n", cmd, param);
 	// mapping
     int res;
+    if ((res = getClientState(fd) == 2)) {
+        // 用户传输文件时不处理控制指令
+        return res;
+    }
     if (!strcmp(cmd, "USER")) res = handleUSER(fd, param);
 	else if (!strcmp(cmd, "PASS")) res = handlePASS(fd, param);
 	else if (!strcmp(cmd, "QUIT")) res = handleQUIT(fd);

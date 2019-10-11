@@ -71,17 +71,6 @@ int getDataListenfd(int fd) {
 	return -1;
 }
 
-void setClientTransfer(int fd, int flag) {
-	struct Client* p = getClientHead();
-	while (p->next) {
-		p = p->next;
-		if (p->fd == fd) {
-			p->tfing = flag;
-			return;
-		}
-	}
-}
-
 void setUsername(int fd, char* username) {
 	struct Client* p = getClientHead();
 	while (p->next) {
