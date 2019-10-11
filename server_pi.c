@@ -1,6 +1,7 @@
 #include "server_pi.h"
 #include "server_util.h"
 
+#include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include <pthread.h>
@@ -24,6 +25,7 @@ const char response425[] = "425 No data connection established!\r\n";
 const char response426[] = "426 Data connection is broken!\r\n";
 const char response451[] = "451 Fail to open file!\r\n";
 const char response500[] = "500 Syntax error!\r\n";
+const char response503[] = "503 \r\n";
 const char response504[] = "504 Parameters not supported!\r\n";
 const char response530[] = "530 Username is unacceptable (only support \"anonymous\" now)!\r\n";
 const char response550[] = "550 Directory operation fail! Please check the parameter.\r\n";
@@ -48,6 +50,7 @@ const char* getResponse(int code) {
         case 426: return response426;
         case 451: return response451;
         case 500: return response500;
+        case 503: return response503;
         case 504: return response504;
         case 530: return response530;
         case 550: return response550;
@@ -55,31 +58,56 @@ const char* getResponse(int code) {
     }
 }
 
-void* transferFile(void* _fd) {
+void transferFile(void* _fd) {
 	int fd = *(int*)_fd;
 	FILE* file = getReservedPtr(fd, 0);
-	unsigned char fileBuf[MAXBUF];
-	int readLen, writeLen;
-	int dataConnfd = getDataConnfd(fd);
-	while ((readLen = fread(fileBuf, sizeof(unsigned char), MAXBUF, file))) {
-		if ((writeLen = writeBuf(dataConnfd, fileBuf, MAXBUF)) == -1) break;
-	}
-    closeDataConn(fd);
-	setClientState(fd, 1);
+    int mode = getDataMode(fd);
+    int conn = 0;
+    int res;
+
+    if (mode == 0) {
+        // PORT mode
+        if (setupDataConn(fd, 1) == -1) {
+            // response with 425
+            res = response(fd, 425);
+        }
+        else conn = 1;
+    }
+    else if (mode == 1) {
+        // PASV mode
+        // 等待客户端建立连接，timeout为1s
+        sleep(1);
+        if (getDataConnfd(fd) == -1 || getDataListenfd(fd) == -1) {
+            // response with 425
+            res = response(fd, 425);
+        }
+        else conn = 1;
+    }
+    // response with 425
+    else res = response(fd, 425);
+
+    if (conn) {
+        unsigned char fileBuf[MAXBUF];
+        int readLen, writeLen;
+        int dataConnfd = getDataConnfd(fd);
+        while ((readLen = fread(fileBuf, sizeof(unsigned char), MAXBUF, file))) {
+            if ((writeLen = writeBuf(dataConnfd, fileBuf, MAXBUF)) == -1) break;
+        }
+        closeDataConn(fd);
+        // response with 426
+        if (writeLen == -1) res = response(fd, 426);
+        // response with 226
+        else res = response(fd, 226);
+    }
     fclose(file);
-	int res;
-	// response with 426
-	if (writeLen == -1) res = response(fd, 426);
-	// response with 226
-	else res = response(fd, 226);
-    setClientState(fd, res);
-	
+	setClientState(fd, res);	
 }
 
 int handleUSER(int fd, char* param) {
     setUsername(fd, param);
 	// response with 331
-	return response(fd, 331);
+	if (response(fd, 331) != -1) return 4;
+    else return -1;
 }
 
 int handlePASS(int fd, char* param) {
@@ -91,7 +119,8 @@ int handlePASS(int fd, char* param) {
     }
     else {
         // response with 530
-        return response(fd, 530);
+        if (response(fd, 530) != -1) return 3;
+        else return -1;
     }
 }
 
@@ -104,7 +133,7 @@ int handleQUIT(int fd) {
 int handleABOR(int fd) {
     // response with 221 same as QUIT
     if (response(fd, 221) == -1) return -1;
-    else return -2;
+    else return 0;
 }
 
 int handleSYST(int fd) {
@@ -163,10 +192,9 @@ int handleRETR(int fd, char* param) {
             fclose(file);
             return -1;
         }
-
-        if (getDataMode(fd) == 0) {
+        /*if (getDataMode(fd) == 0) {
             // PORT mode
-            if (setupDataConn(fd) == -1) {
+            if (setupDataConn(fd, 1) == -1) {
                 fclose(file);
                 // response with 425
                 return response(fd, 425);
@@ -184,7 +212,7 @@ int handleRETR(int fd, char* param) {
             fclose(file);
             // response with 425
             return response(fd, 425);
-        }
+        }*/
         setReservedPtr(fd, 0, file);
         pthread_t transThread;
         pthread_create(&transThread, NULL, (void*)transferFile, &fd);
@@ -248,7 +276,8 @@ int handleRMD(int fd, char* param) {
 int handleRNFR(int fd, char* param) {
     if (setFile2Rename(fd, param) != -1) {
         // response with 350
-        return response(fd, 350);
+        if (response(fd, 350) != -1) return 5;
+        else return -1;
     }
     else {
         // response with 550
@@ -273,7 +302,7 @@ int handleLIST(int fd, char* param) {
     // response with 150
     if (response(fd, 150) == -1) return -1;
     if (getDataMode(fd) == 0) {
-        if (setupDataConn(fd) == -1) {
+        if (setupDataConn(fd, 1) == -1) {
             // response with 425
             return response(fd, 425);
         }
@@ -309,15 +338,34 @@ int validCmd(char* cmd) {
 int cmdMapper(int fd, char* cmd, char* param) {
     printf("Debug Info in PI: cmd is %s and param is %s\r\n", cmd, param);
 	// mapping
-    int res;
-    if ((res = getClientState(fd) == 2)) {
+    int res = getClientState(fd);
+    if (!strcmp(cmd, "QUIT")) res = handleQUIT(fd);
+    else if (!strcmp(cmd, "ABOR")) res = handleABOR(fd);
+    else if (res == 3) {
+        // 请求用户名
+        if (!strcmp(cmd, "USER")) res = handleUSER(fd, param);
+        // response with 332
+        else response(fd, 332);
+    }
+    else if (res == 4) {
+        // 请求密码
+        if (!strcmp(cmd, "PASS")) res = handlePASS(fd, param);
+        // response with 331
+        else response(fd, 331);
+    }
+    else if (res == 2) {
         // 用户传输文件时不处理控制指令
         return res;
     }
-    if (!strcmp(cmd, "USER")) res = handleUSER(fd, param);
-	else if (!strcmp(cmd, "PASS")) res = handlePASS(fd, param);
-	else if (!strcmp(cmd, "QUIT")) res = handleQUIT(fd);
-    else if (!strcmp(cmd, "ABOR")) res = handleABOR(fd);
+    else if (res == 5) {
+        if (!strcmp(cmd, "RNTO")) res = handleRNTO(fd, param);
+        // response with 503
+        else res = response(fd, 503);
+    } 
+    // else if (!strcmp(cmd, "USER")) res = handleUSER(fd, param);
+	// else if (!strcmp(cmd, "PASS")) res = handlePASS(fd, param);
+	// else if (!strcmp(cmd, "QUIT")) res = handleQUIT(fd);
+    // else if (!strcmp(cmd, "ABOR")) res = handleABOR(fd);
     else if (!strcmp(cmd, "SYST")) res = handleSYST(fd);
     else if (!strcmp(cmd, "TYPE")) res = handleTYPE(fd, param);
     else if (!strcmp(cmd, "PORT")) res = handlePORT(fd, param);
@@ -328,7 +376,7 @@ int cmdMapper(int fd, char* cmd, char* param) {
     else if (!strcmp(cmd, "CWD")) res = handleCWD(fd, param);
     else if (!strcmp(cmd, "RMD")) res = handleRMD(fd, param);
     else if (!strcmp(cmd, "RNFR")) res = handleRNFR(fd, param);
-    else if (!strcmp(cmd, "RNTO")) res = handleRNTO(fd, param);
+    // else if (!strcmp(cmd, "RNTO")) res = handleRNTO(fd, param);
     else if (!strcmp(cmd, "LIST")) res = handleLIST(fd, param);
 	else {
 		// response with 500
@@ -336,24 +384,4 @@ int cmdMapper(int fd, char* cmd, char* param) {
 	}
     setClientState(fd, res);
     return res;
-	/*if (!strcmp(cmd, "USER")) return handleUSER(fd, param);
-	else if (!strcmp(cmd, "PASS")) return handlePASS(fd, param);
-	else if (!strcmp(cmd, "QUIT")) return handleQUIT(fd);
-    else if (!strcmp(cmd, "ABOR")) return handleABOR(fd);
-    else if (!strcmp(cmd, "SYST")) return handleSYST(fd);
-    else if (!strcmp(cmd, "TYPE")) return handleTYPE(fd, param);
-    else if (!strcmp(cmd, "PORT")) return handlePORT(fd, param);
-    else if (!strcmp(cmd, "PASV")) return handlePASV(fd);
-    else if (!strcmp(cmd, "RETR")) return handleRETR(fd, param);
-    else if (!strcmp(cmd, "PWD")) return handlePWD(fd);
-    else if (!strcmp(cmd, "MKD")) return handleMKD(fd, param);
-    else if (!strcmp(cmd, "CWD")) return handleCWD(fd, param);
-    else if (!strcmp(cmd, "RMD")) return handleRMD(fd, param);
-    else if (!strcmp(cmd, "RNFR")) return handleRNFR(fd, param);
-    else if (!strcmp(cmd, "RNTO")) return handleRNTO(fd, param);
-    else if (!strcmp(cmd, "LIST")) return handleLIST(fd, param);
-	else {
-		// response with 500
-		return response(fd, 500);
-	}*/
 }

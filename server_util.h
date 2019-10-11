@@ -83,7 +83,7 @@ int copyFile(const char* oPath, const char* nPath);
 
 unsigned int getFileSize(FILE* file);
 
-int setupListen(char* ipAddr, int port);
+int setupListen(char* ipAddr, int port, int opt);
 
 void getCmdNParam(char* request, char* cmd, char* param);
 
@@ -99,7 +99,7 @@ void parseIpAddrNPort(char* param, char* ipAddr, int* port);
 
 int acceptNewConn(int listenfd);
 
-int setupDataConn(int fd);
+int setupDataConn(int fd, int opt);
 
 void closeDataConn(int fd);
 

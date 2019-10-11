@@ -93,7 +93,7 @@ int enterPassiveMode(int userfd, char* ipAddr, int* port) {
 	strcpy(ipAddr, "0.0.0.0");
 	*port = client->fd+57300;
 
-	if((client->dataListenfd = setupListen(ipAddr, *port)) != -1) {
+	if((client->dataListenfd = setupListen(ipAddr, *port, 1)) != -1) {
 		client->mode = 1;
 		printf(promptDataListen, *port, client->fd, client->dataListenfd);
 		return 1;
@@ -163,20 +163,8 @@ void processClientConn() {
 			char param[MAXBUF];
 			if(receiveFromClient(p->fd, reqBuf, cmd, param) != -1) {
 				cmdMapper(p->fd, cmd, param);
-				/*if (res == -1) {
-					// 用户连接非正常关闭，服务器层负责删除用户
-					printf(errorConnShutDown, p->fd);
-					p = deleteClient(p->fd);
-				}
-				else if (res == -2) {
-					printf(promptClientClose, p->fd);
-					p = deleteClient(p->fd);
-				}*/
 			}
 			else {
-				/*// 用户连接非正常关闭，服务器层负责删除用户
-				printf(errorConnShutDown, p->fd);
-				p = deleteClient(p->fd);*/
 				setClientState(p->fd, ERRORQUIT);
 			}
 		}
@@ -239,7 +227,7 @@ int process() {
 	head = (struct Client*)malloc(sizeof(struct Client));
 	initServer();
 
-	if((listenfd = setupListen("0.0.0.0", listenPort)) != -1) printf(promptClientListen, listenPort);
+	if((listenfd = setupListen("0.0.0.0", listenPort, 1)) != -1) printf(promptClientListen, listenPort);
 	else {
 		printf(errorListenFail, listenPort);
 		return -1;

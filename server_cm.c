@@ -11,13 +11,12 @@ struct Client* initClient(struct Client* client, int fd, struct Client* prev, st
 	memset(client->ipAddr, 0, 32);
 	memset(client->workDir, 0, MAXPATH);
 	strcpy(client->workDir, "/");
-	client->state = NORM; // 暂时设置NORM
+	client->state = WAITUSER; // 暂时设置NORM
 	client->fd = fd;
 	client->dataListenfd = -1;
 	client->dataConnfd = -1;
 	client->port = -1;
 	client->mode = 0;
-	client->tfing = 0;
 	client->bytesRecv = 0;
 	client->prev = prev;
 	client->next = next;

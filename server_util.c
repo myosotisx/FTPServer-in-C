@@ -100,7 +100,7 @@ unsigned int getFileSize(FILE* file) {
 	return size;
 }
 
-int setupListen(char* ipAddr, int port) {
+int setupListen(char* ipAddr, int port, int opt) {
 	struct sockaddr_in addr;
 	int listenfd;
 
@@ -114,10 +114,14 @@ int setupListen(char* ipAddr, int port) {
 	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = inet_addr(ipAddr);
 
+	// 设置端口复用
+	if (opt) {
+		setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&opt, sizeof(opt));
+	}
+
 	if (bind(listenfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 		printf("Error bind(): %s(%d)\n", strerror(errno), errno);
-		// 如果绑定失败说明已经建立过PASV数据连接，重新开启监听即可
-		// return -1; 
+		return -1; 
 	}
 
 	if (listen(listenfd, BACKLOG) == -1) {
@@ -184,7 +188,7 @@ int acceptNewConn(int listenfd) {
 	else return newfd;
 }
 
-int setupDataConn(int fd) {
+int setupDataConn(int fd, int opt) {
 	char ipAddr[32];
 	int port;
 	memset(ipAddr, 0, 32);
@@ -202,8 +206,13 @@ int setupDataConn(int fd) {
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(57302);
+	addr.sin_port = htons(57300);
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	// 设置端口复用
+	if (opt) {
+		setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&opt, sizeof(opt));
+	}
 
 	if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 		printf("Error bind(): %s(%d)\n", strerror(errno), errno);
