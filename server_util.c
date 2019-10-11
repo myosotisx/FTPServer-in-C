@@ -197,9 +197,9 @@ int setupDataConn(int fd, int opt) {
 	printf("ipAddr: %s port: %d\r\n", ipAddr, port);
 
 	struct sockaddr_in addr, addrClient;
-	int sockfd;
+	int dataConnfd;
 
-	if ((sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
+	if ((dataConnfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
 		printf("Error socket(): %s(%d)\n", strerror(errno), errno);
 		return -1;
 	}
@@ -211,13 +211,12 @@ int setupDataConn(int fd, int opt) {
 
 	// 设置端口复用
 	if (opt) {
-		setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&opt, sizeof(opt));
+		setsockopt(dataConnfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&opt, sizeof(opt));
 	}
 
-	if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+	if (bind(dataConnfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 		printf("Error bind(): %s(%d)\n", strerror(errno), errno);
-		// 如果绑定失败说明已经建立过PORT数据连接，重新连接即可
-		// return -1;
+		return -1;
 	}
 
 	memset(&addr, 0, sizeof(addrClient));
@@ -228,12 +227,15 @@ int setupDataConn(int fd, int opt) {
 		return -1;
 	}
 
-	if (connect(sockfd, (struct sockaddr*)&addrClient, sizeof(addrClient)) < 0) {
+	if (connect(dataConnfd, (struct sockaddr*)&addrClient, sizeof(addrClient)) < 0) {
 		printf("Error connect(): %s(%d)\n", strerror(errno), errno);
 		return -1;
 	}
 
-	setDataConnfd(fd, sockfd);
+	if (setDataConnfd(fd, dataConnfd) == -1) {
+		printf("Error setDataConnfd()!\r\n");
+		return -1;
+	}
 
 	return 1;
 }

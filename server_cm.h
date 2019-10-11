@@ -13,8 +13,8 @@ struct Client {
 	int port;
 	int mode;  // 0表示PORT，1表示PASV，默认为0
 	char ipAddr[32];
-	char username[MAXBUF];
-	char password[MAXBUF];
+	char username[32];
+	char password[32];
 	char workDir[MAXPATH];
 	char reserved[10][MAXPATH];
 	void* reservedPtr[10];

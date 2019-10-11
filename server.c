@@ -39,6 +39,7 @@ const char errorClientConn[] = "Connection with client fails!\r\n";
 const char errorClientDataConn[] = "Data Connection with client (fd: %d, dataListenfd: %d) fails!\r\n";
 const char errorInvalidReq[] = "Invalid Request!\r\n";
 const char errorConnShutDown[] = "Connection with client (fd: %d) has been shut down!\r\n";
+const char errorClientNotFound[] = "Client (fd: %d) not found!\r\n";
 
 struct Client* getClientHead() {
 	return head;
@@ -80,23 +81,23 @@ void initServer() {
 	tv.tv_usec = 0;
 }
 
-int enterPassiveMode(int userfd, char* ipAddr, int* port) {
-	struct Client* client = getClient(userfd);
-	if (!client) return -1;
-	if (client->dataListenfd != -1) {
-		close(client->dataConnfd);
-		close(client->dataListenfd);
-		client->dataConnfd = -1;
-		client->dataListenfd = -1;
-	}
+int enterPassiveMode(int fd, char* ipAddr, int* port) {
+	closeDataConn(fd);
 
 	strcpy(ipAddr, "0.0.0.0");
-	*port = client->fd+57300;
+	*port = fd+57300;
+	int dataListenfd;
 
-	if((client->dataListenfd = setupListen(ipAddr, *port, 1)) != -1) {
-		client->mode = 1;
-		printf(promptDataListen, *port, client->fd, client->dataListenfd);
-		return 1;
+	if((dataListenfd = setupListen(ipAddr, *port, 1)) != -1) {
+		if (setDataMode(fd, 1) != -1 && setDataListenfd(fd, dataListenfd) != -1) {
+			printf(promptDataListen, *port, fd, dataListenfd);
+			return 1;
+		}
+		else {
+			printf(errorClientNotFound, fd);
+			close(dataListenfd);
+			return -1;
+		}
 	}
 	else {
 		printf(errorListenFail, *port);
@@ -104,15 +105,17 @@ int enterPassiveMode(int userfd, char* ipAddr, int* port) {
 	}
 }
 
-int enterPortMode(int userfd, char* ipAddr, int port) {
-	struct Client* client = getClient(userfd);
-	if (!client) return -1;
-	client->mode = 0;
-	memset(client->ipAddr, 0, sizeof(client->ipAddr));
-	strcpy(client->ipAddr, ipAddr);
-	client->port = port;
-	printf(promptDataConnReady, client->fd, client->ipAddr, client->port);
-	return 1;
+int enterPortMode(int fd, char* ipAddr, int port) {
+	closeDataConn(fd);
+
+	if (setDataMode(fd, 0) != -1 && setIpAddrNPort(fd, ipAddr, port) != -1) {
+		printf(promptDataConnReady, fd, ipAddr, port);
+		return 1;
+	}
+	else {
+		printf(errorClientNotFound, fd);
+		return -1;
+	}
 }
 
 void checkClient() {

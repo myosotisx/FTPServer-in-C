@@ -23,7 +23,7 @@ const char response332[] = "332 Please send your username to log in (only suppor
 const char response350[] = "350 RNFR accepted - file exists, ready for destination.\r\n";
 const char response425[] = "425 No data connection established!\r\n";
 const char response426[] = "426 Data connection is broken!\r\n";
-const char response451[] = "451 Fail to open file!\r\n";
+const char response451[] = "451 Fail to open/create file!\r\n";
 const char response500[] = "500 Syntax error!\r\n";
 const char response503[] = "503 \r\n";
 const char response504[] = "504 Parameters not supported!\r\n";
@@ -58,7 +58,7 @@ const char* getResponse(int code) {
     }
 }
 
-void transferFile(void* _fd) {
+void sendFile(void* _fd) {
 	int fd = *(int*)_fd;
 	FILE* file = getReservedPtr(fd, 0);
     int mode = getDataMode(fd);
@@ -67,6 +67,8 @@ void transferFile(void* _fd) {
 
     if (mode == 0) {
         // PORT mode
+        // 等待客户端开启监听，timeout为1s
+        sleep(1);
         if (setupDataConn(fd, 1) == -1) {
             // response with 425
             res = response(fd, 425);
@@ -91,7 +93,7 @@ void transferFile(void* _fd) {
         int readLen, writeLen;
         int dataConnfd = getDataConnfd(fd);
         while ((readLen = fread(fileBuf, sizeof(unsigned char), MAXBUF, file))) {
-            if ((writeLen = writeBuf(dataConnfd, fileBuf, MAXBUF)) == -1) break;
+            if ((writeLen = writeBuf(dataConnfd, fileBuf, readLen)) == -1) break;
         }
         closeDataConn(fd);
         // response with 426
@@ -101,6 +103,57 @@ void transferFile(void* _fd) {
     }
     fclose(file);
 	setClientState(fd, res);	
+}
+
+void recvFile(void* _fd) {
+    int fd = *(int*)_fd;
+	FILE* file = getReservedPtr(fd, 1);
+    int mode = getDataMode(fd);
+    int conn = 0;
+    int res;
+
+    if (mode == 0) {
+        // PORT mode
+        // 等待客户端开启监听，timeout为1s
+        sleep(1);
+        if (setupDataConn(fd, 1) == -1) {
+            // response with 425
+            res = response(fd, 425);
+        }
+        else conn = 1;
+    }
+    else if (mode == 1) {
+        // PASV mode
+        // 等待客户端建立连接，timeout为1s
+        sleep(1);
+        if (getDataConnfd(fd) == -1 || getDataListenfd(fd) == -1) {
+            // response with 425
+            res = response(fd, 425);
+        }
+        else conn = 1;
+    }
+    // response with 425
+    else res = response(fd, 425);
+
+    if (conn) {
+        unsigned char fileBuf[MAXBUF];
+        long long totLen = 0;
+        int readLen;
+        int dataConnfd = getDataConnfd(fd);
+        while ((readLen = read(dataConnfd, fileBuf, MAXBUF))) {
+            if (readLen == -1) break;
+            totLen += readLen;
+            fwrite(fileBuf, sizeof(unsigned char), readLen, file);
+        }
+        printf("totLen is: %lld\r\n", totLen);
+        closeDataConn(fd);
+        // response with 426
+        if (readLen == -1) res = response(fd, 426);
+        // response with 226
+        else res = response(fd, 226);
+    }
+    fclose(file);
+	setClientState(fd, res);
 }
 
 int handleUSER(int fd, char* param) {
@@ -192,30 +245,9 @@ int handleRETR(int fd, char* param) {
             fclose(file);
             return -1;
         }
-        /*if (getDataMode(fd) == 0) {
-            // PORT mode
-            if (setupDataConn(fd, 1) == -1) {
-                fclose(file);
-                // response with 425
-                return response(fd, 425);
-            }
-        }
-        else if (getDataMode(fd) == 1) {
-            // PASV mode
-            if (getDataConnfd(fd) == -1 || getDataListenfd(fd) == -1) {
-                fclose(file);
-                // response with 425
-                return response(fd, 425);
-            }
-        }
-        else {
-            fclose(file);
-            // response with 425
-            return response(fd, 425);
-        }*/
         setReservedPtr(fd, 0, file);
         pthread_t transThread;
-        pthread_create(&transThread, NULL, (void*)transferFile, &fd);
+        pthread_create(&transThread, NULL, (void*)sendFile, &fd);
         return 2;
     }
     else {
@@ -223,6 +255,29 @@ int handleRETR(int fd, char* param) {
         return response(fd, 451);
     }
     
+}
+
+int handleSTOR(int fd, char* param) {
+    char path[MAXPATH];
+    getFilePath(fd, path, param);
+
+    FILE* file = fopen(path, "wb");
+    if (file) {
+        sprintf(response150, "150 Opening BINARY mode data connection.\r\n");
+        // response with 150
+        if (response(fd, 150) == -1) {
+            fclose(file);
+            return -1;
+        }
+        setReservedPtr(fd, 1, file);
+        pthread_t transThread;
+        pthread_create(&transThread, NULL, (void*)recvFile, &fd);
+        return 2;
+    }
+    else {
+        // response with 451
+        return response(fd, 451);
+    }
 }
 
 int handlePWD(int fd) {
@@ -328,13 +383,6 @@ int handleLIST(int fd, char* param) {
     return response(fd, 226);
 }
 
-int validCmd(char* cmd) {
-    if (strcmp(cmd, "USER")
-        && strcmp(cmd, "PASS")
-        && strcmp(cmd, "QUIT")) return 0;
-    else return 1;
-}
-
 int cmdMapper(int fd, char* cmd, char* param) {
     printf("Debug Info in PI: cmd is %s and param is %s\r\n", cmd, param);
 	// mapping
@@ -355,28 +403,25 @@ int cmdMapper(int fd, char* cmd, char* param) {
     }
     else if (res == 2) {
         // 用户传输文件时不处理控制指令
+        printf("Can not handle cmd when transfer!\r\n");
         return res;
     }
     else if (res == 5) {
         if (!strcmp(cmd, "RNTO")) res = handleRNTO(fd, param);
         // response with 503
         else res = response(fd, 503);
-    } 
-    // else if (!strcmp(cmd, "USER")) res = handleUSER(fd, param);
-	// else if (!strcmp(cmd, "PASS")) res = handlePASS(fd, param);
-	// else if (!strcmp(cmd, "QUIT")) res = handleQUIT(fd);
-    // else if (!strcmp(cmd, "ABOR")) res = handleABOR(fd);
+    }
     else if (!strcmp(cmd, "SYST")) res = handleSYST(fd);
     else if (!strcmp(cmd, "TYPE")) res = handleTYPE(fd, param);
     else if (!strcmp(cmd, "PORT")) res = handlePORT(fd, param);
     else if (!strcmp(cmd, "PASV")) res = handlePASV(fd);
     else if (!strcmp(cmd, "RETR")) res = handleRETR(fd, param);
+    else if (!strcmp(cmd, "STOR")) res = handleSTOR(fd, param);
     else if (!strcmp(cmd, "PWD")) res = handlePWD(fd);
     else if (!strcmp(cmd, "MKD")) res = handleMKD(fd, param);
     else if (!strcmp(cmd, "CWD")) res = handleCWD(fd, param);
     else if (!strcmp(cmd, "RMD")) res = handleRMD(fd, param);
     else if (!strcmp(cmd, "RNFR")) res = handleRNFR(fd, param);
-    // else if (!strcmp(cmd, "RNTO")) res = handleRNTO(fd, param);
     else if (!strcmp(cmd, "LIST")) res = handleLIST(fd, param);
 	else {
 		// response with 500

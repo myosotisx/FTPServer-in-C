@@ -23,41 +23,45 @@ struct Client* destroyClientByfd(int fd);
 
 struct Client* getClient(int fd);
 
+int getClientState(int fd);
+
+int setClientState(int fd, int state);
+
+int getDataMode(int fd);
+
+int setDataMode(int fd, int mode);
+
 int getDataConnfd(int fd);
+
+int setDataConnfd(int fd, int dataConnfd);
 
 int getDataListenfd(int fd);
 
-int getIpAddrNPort(int fd, char* ipAddr, int* port);
+int setDataListenfd(int fd, int dataListenfd);
 
-void setDataConnfd(int fd, int sockfd);
+int clearDataConn(int fd);
 
-void setUsername(int fd, char* username);
+const char* getUsername(int fd);
 
-void clearDataConn(int fd);
-
-char* getUsername(int fd);
-
-int getDataMode(int fd);
+int setUsername(int fd, const char* username);
 
 const char* getWorkDir(int fd);
 
 int setWorkDir(int fd, char* path);
 
-void setPassword(int fd, char* password);
+int getIpAddrNPort(int fd, char* ipAddr, int* port);
 
-int setReserved(int fd, int index, const char* content);
+int setIpAddrNPort(int fd, const char* ipAddr, int port);
 
-int setReservedPtr(int fd, int index, void* ptr);
+int setPassword(int fd, const char* password);
 
 const char* getReserved(int fd, int index);
 
+int setReserved(int fd, int index, const char* content);
+
 void* getReservedPtr(int fd, int index);
 
-void setClientState(int fd, int state);
-
-int getClientState(int fd);
-
-void printClient();
+int setReservedPtr(int fd, int index, void* ptr);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
