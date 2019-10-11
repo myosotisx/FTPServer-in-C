@@ -34,7 +34,7 @@ const char promptNewConn[] = "New connection from client (fd: %d).\r\n";
 const char promptNewDataConn[] = "New data connection from client (fd: %d, dataListenfd: %d, dataConnfd: %d).\r\n";
 
 const char errorListenFail[] = "Fail to setup listen at port: %d!\r\n";
-const char errorSelect[] = "Error occurs when using select()! Sever aborts!\r\n";
+const char errorSelect[] = "Error occurs when using select()! Server aborts!\r\n";
 const char errorClientConn[] = "Connection with client fails!\r\n";
 const char errorClientDataConn[] = "Data Connection with client (fd: %d, dataListenfd: %d) fails!\r\n";
 const char errorInvalidReq[] = "Invalid Request!\r\n";
@@ -81,9 +81,6 @@ void initServer() {
 }
 
 int enterPassiveMode(int userfd, char* ipAddr, int* port) {
-	strcpy(ipAddr, "0.0.0.0");
-	*port = 57302;
-
 	struct Client* client = getClient(userfd);
 	if (!client) return -1;
 	if (client->dataListenfd != -1) {
@@ -92,6 +89,10 @@ int enterPassiveMode(int userfd, char* ipAddr, int* port) {
 		client->dataConnfd = -1;
 		client->dataListenfd = -1;
 	}
+
+	strcpy(ipAddr, "0.0.0.0");
+	*port = client->fd+57300;
+
 	if((client->dataListenfd = setupListen(ipAddr, *port)) != -1) {
 		client->mode = 1;
 		printf(promptDataListen, *port, client->fd, client->dataListenfd);
@@ -112,6 +113,22 @@ int enterPortMode(int userfd, char* ipAddr, int port) {
 	client->port = port;
 	printf(promptDataConnReady, client->fd, client->ipAddr, client->port);
 	return 1;
+}
+
+void checkClient() {
+	struct Client* p = head;
+	while (p->next) {
+		p = p->next;
+		
+		if (p->state == ERRORQUIT) {
+			printf(errorConnShutDown, p->fd);
+			p = deleteClient(p->fd);
+		}
+		else if (p->state == NORMQUIT) {
+			printf(promptClientClose, p->fd);
+			p = deleteClient(p->fd);
+		}
+	}
 }
 
 void processClientConn() {
@@ -146,7 +163,7 @@ void processClientConn() {
 			char param[MAXBUF];
 			if(receiveFromClient(p->fd, reqBuf, cmd, param) != -1) {
 				int res = cmdMapper(p->fd, cmd, param);
-				if (res == -1) {
+				/*if (res == -1) {
 					// 用户连接非正常关闭，服务器层负责删除用户
 					printf(errorConnShutDown, p->fd);
 					p = deleteClient(p->fd);
@@ -154,12 +171,13 @@ void processClientConn() {
 				else if (res == -2) {
 					printf(promptClientClose, p->fd);
 					p = deleteClient(p->fd);
-				}
+				}*/
 			}
 			else {
-				// 用户连接非正常关闭，服务器层负责删除用户
+				/*// 用户连接非正常关闭，服务器层负责删除用户
 				printf(errorConnShutDown, p->fd);
-				p = deleteClient(p->fd);
+				p = deleteClient(p->fd);*/
+				setClientState(p->fd, ERRORQUIT);
 			}
 		}
 	}
@@ -228,6 +246,7 @@ int process() {
 	}
 	
 	while (1) {
+		checkClient();
 		processDataConn();
 		processClientConn();
 	}

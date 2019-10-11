@@ -11,6 +11,7 @@ struct Client* initClient(struct Client* client, int fd, struct Client* prev, st
 	memset(client->ipAddr, 0, 32);
 	memset(client->workDir, 0, MAXPATH);
 	strcpy(client->workDir, "/");
+	client->state = NORM; // 暂时设置NORM
 	client->fd = fd;
 	client->dataListenfd = -1;
 	client->dataConnfd = -1;
@@ -173,9 +174,24 @@ int setReserved(int fd, int index, const char* content) {
 	else return -1;
 }
 
+int setReservedPtr(int fd, int index, void* ptr) {
+	struct Client* client = getClient(fd);
+	if (client) {
+		client->reservedPtr[index] = ptr;
+		return 1;
+	}
+	else return -1;
+}
+
 const char* getReserved(int fd, int index) {
 	struct Client* client = getClient(fd);
 	if (client) return client->reserved[index];
+	else return NULL;
+}
+
+void* getReservedPtr(int fd, int index) {
+	struct Client* client = getClient(fd);
+	if (client) return client->reservedPtr[index];
 	else return NULL;
 }
 
@@ -193,6 +209,20 @@ void clearDataConn(int fd) {
 			return;
 		}
 	}
+}
+
+void setClientState(int fd, int state) {
+	struct Client* client = getClient(fd);
+	if (client) {
+		client->state = state;
+		printf("Client (fd: %d) state set to %d\r\n", client->fd, client->state);
+	}
+}
+
+int getClientState(int fd) {
+	struct Client* client = getClient(fd);
+	if (client) return client->state;
+	else return ERRORQUIT;
 }
 
 void printClient() {

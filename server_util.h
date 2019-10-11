@@ -1,6 +1,5 @@
 #ifndef SERVER_UTIL_H
 #define SERVER_UTIL_H
-#endif
 
 #include <stdio.h>
 
@@ -11,6 +10,8 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // 允许服务器自定义用户信息
+
+enum State;
 
 struct Client;
 
@@ -48,7 +49,15 @@ void setPassword(int fd, char* password);
 
 int setReserved(int fd, int index, const char* content);
 
+int setReservedPtr(int fd, int index, void* ptr);
+
 const char* getReserved(int fd, int index);
+
+void* getReservedPtr(int fd, int index);
+
+void setClientState(int fd, int state);
+
+int getClientState(int fd);
 
 void printClient();
 
@@ -70,15 +79,13 @@ int readBuf(int sockfd, void* buf);
 
 int writeBuf(int sockfd, const void* buf, int len);
 
-int writeFile(int fd, FILE* file);
-
 int writeString(int fd, const char* string);
 
 int copyFile(const char* oPath, const char* nPath);
 
 unsigned int getFileSize(FILE* file);
 
-int setupListen(char* ipAddr, short port);
+int setupListen(char* ipAddr, int port);
 
 void getCmdNParam(char* request, char* cmd, char* param);
 
@@ -119,3 +126,5 @@ int setFile2Rename(int fd, const char* path);
 int renameFile(int fd, const char* oPath, const char* nPath);
 
 char* getFileList(int fd, char* fileList, const char* path);
+
+#endif

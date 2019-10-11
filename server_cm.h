@@ -1,10 +1,12 @@
-#ifndef SERVER_UTIL_H
-#define SERVER_UTIL_H
-#endif
+#ifndef SERVER_CM_H
+#define SERVER_CM_H
 
 #include "server_util.h"
 
+enum State { ERRORQUIT = -1, NORMQUIT = 0, NORM = 1, TRANSFER = 2, WAITUSER = 3, WAITPASS = 4 };
+
 struct Client {
+	enum State state;
 	int fd;
 	int dataListenfd;
 	int dataConnfd;
@@ -16,8 +18,10 @@ struct Client {
 	char password[MAXBUF];
 	char workDir[MAXPATH];
 	char reserved[10][MAXPATH];
+	void* reservedPtr[10];
 	int bytesRecv;
 	struct Client* prev;
 	struct Client* next;
-	
 };
+
+#endif

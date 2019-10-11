@@ -56,16 +56,6 @@ int writeBuf(int sockfd, const void* buf, int len) {
 	return p;
 }
 
-int writeFile(int fd, FILE* file) {
-	unsigned char fileBuf[MAXBUF];
-	int len;
-	int dataConnfd = getDataConnfd(fd);
-	while ((len = fread(fileBuf, sizeof(unsigned char), MAXBUF, file))) {
-		if (writeBuf(dataConnfd, fileBuf, MAXBUF) == -1) return -1;
-	}
-	return 1;
-}
-
 int writeString(int fd, const char* string) {
 	int dataConnfd = getDataConnfd(fd);
 	int len = strlen(string);
@@ -110,7 +100,7 @@ unsigned int getFileSize(FILE* file) {
 	return size;
 }
 
-int setupListen(char* ipAddr, short port) {
+int setupListen(char* ipAddr, int port) {
 	struct sockaddr_in addr;
 	int listenfd;
 
@@ -160,7 +150,8 @@ void getCmdNParam(char* request, char* cmd, char* param) {
 
 int response(int fd, int code) {
 	const char* response = getResponseByCode(code);
-	return writeBuf(fd, response, strlen(response));
+	if (writeBuf(fd, response, strlen(response)) != -1) return 1;
+	else return -1;
 }
 
 int receiveFromClient(int fd, char* reqBuf, char* cmd, char* param) {
@@ -209,11 +200,9 @@ int setupDataConn(int fd) {
 		return -1;
 	}
 
-	printf("sockfd: %d\r\n", sockfd);
-
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(57300);
+	addr.sin_port = htons(57302);
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
@@ -241,10 +230,11 @@ int setupDataConn(int fd) {
 }
 
 void closeDataConn(int fd) {
-	int dataConnfd, dataListenfd;
-	close(getDataListenfd(fd));
-	close(getDataConnfd(fd));
+	int dataListenfd = getDataListenfd(fd);
+	int dataConnfd = getDataConnfd(fd);
 	clearDataConn(fd);
+	close(dataConnfd);
+	close(dataListenfd);
 }
 
 char* getFilePath(int fd, char* path, char* fileName) {

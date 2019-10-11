@@ -2,8 +2,8 @@
 #include "server_util.h"
 
 #include <string.h>
-
 #include <stdio.h>
+#include <pthread.h>
 
 #define MAXRES 1024
 
@@ -55,6 +55,27 @@ const char* getResponse(int code) {
     }
 }
 
+void* transferFile(void* _fd) {
+	int fd = *(int*)_fd;
+	FILE* file = getReservedPtr(fd, 0);
+	unsigned char fileBuf[MAXBUF];
+	int readLen, writeLen;
+	int dataConnfd = getDataConnfd(fd);
+	while ((readLen = fread(fileBuf, sizeof(unsigned char), MAXBUF, file))) {
+		if ((writeLen = writeBuf(dataConnfd, fileBuf, MAXBUF)) == -1) break;
+	}
+    closeDataConn(fd);
+	setClientTransfer(fd, 0);
+    fclose(file);
+	int res;
+	// response with 426
+	if (writeLen == -1) res = response(fd, 426);
+	// response with 226
+	else res = response(fd, 226);
+    setClientState(fd, res);
+	
+}
+
 int handleUSER(int fd, char* param) {
     setUsername(fd, param);
 	// response with 331
@@ -77,7 +98,7 @@ int handlePASS(int fd, char* param) {
 int handleQUIT(int fd) {
     // response with 221
 	if (response(fd, 221) == -1) return -1;
-    else return -2;
+    else return 0;
 }
 
 int handleABOR(int fd) {
@@ -159,9 +180,12 @@ int handleRETR(int fd, char* param) {
                 return response(fd, 425);
             }
         }
-        // response with 425
-        else return response(fd, 425);
-        setClientTransfer(fd, 1);
+        else {
+            fclose(file);
+            // response with 425
+            return response(fd, 425);
+        }
+        /*setClientTransfer(fd, 1);
         if (writeFile(fd, file) == -1) {
             closeDataConn(fd);
             setClientTransfer(fd, 0);
@@ -171,8 +195,13 @@ int handleRETR(int fd, char* param) {
         }
         closeDataConn(fd);
         setClientTransfer(fd, 0);
-        fclose(file); 
-        return response(fd, 226);
+        fclose(file);
+        return response(fd, 226);*/
+        setClientTransfer(fd, 1);
+        setReservedPtr(fd, 0, file);
+        pthread_t transThread;
+        pthread_create(&transThread, NULL, (void*)transferFile, &fd);
+        return 1;
     }
     else {
         // response with 451
@@ -270,7 +299,7 @@ int handleLIST(int fd, char* param) {
     }
     // response with 425
     else return response(fd, 425);
-    
+
     char fileList[MAXBUF];
     getFileList(fd, fileList, param);
     if (writeString(fd, fileList) == -1) {
@@ -293,7 +322,30 @@ int validCmd(char* cmd) {
 int cmdMapper(int fd, char* cmd, char* param) {
     printf("Debug Info in PI: cmd is %s and param is %s\r\n", cmd, param);
 	// mapping
-	if (!strcmp(cmd, "USER")) return handleUSER(fd, param);
+    int res;
+    if (!strcmp(cmd, "USER")) res = handleUSER(fd, param);
+	else if (!strcmp(cmd, "PASS")) res = handlePASS(fd, param);
+	else if (!strcmp(cmd, "QUIT")) res = handleQUIT(fd);
+    else if (!strcmp(cmd, "ABOR")) res = handleABOR(fd);
+    else if (!strcmp(cmd, "SYST")) res = handleSYST(fd);
+    else if (!strcmp(cmd, "TYPE")) res = handleTYPE(fd, param);
+    else if (!strcmp(cmd, "PORT")) res = handlePORT(fd, param);
+    else if (!strcmp(cmd, "PASV")) res = handlePASV(fd);
+    else if (!strcmp(cmd, "RETR")) res = handleRETR(fd, param);
+    else if (!strcmp(cmd, "PWD")) res = handlePWD(fd);
+    else if (!strcmp(cmd, "MKD")) res = handleMKD(fd, param);
+    else if (!strcmp(cmd, "CWD")) res = handleCWD(fd, param);
+    else if (!strcmp(cmd, "RMD")) res = handleRMD(fd, param);
+    else if (!strcmp(cmd, "RNFR")) res = handleRNFR(fd, param);
+    else if (!strcmp(cmd, "RNTO")) res = handleRNTO(fd, param);
+    else if (!strcmp(cmd, "LIST")) res = handleLIST(fd, param);
+	else {
+		// response with 500
+		res = response(fd, 500);
+	}
+    setClientState(fd, res);
+    return res;
+	/*if (!strcmp(cmd, "USER")) return handleUSER(fd, param);
 	else if (!strcmp(cmd, "PASS")) return handlePASS(fd, param);
 	else if (!strcmp(cmd, "QUIT")) return handleQUIT(fd);
     else if (!strcmp(cmd, "ABOR")) return handleABOR(fd);
@@ -312,5 +364,5 @@ int cmdMapper(int fd, char* cmd, char* param) {
 	else {
 		// response with 500
 		return response(fd, 500);
-	}
+	}*/
 }
