@@ -163,6 +163,22 @@ void setPassword(int fd, char* password) {
 	}
 }
 
+int setReserved(int fd, int index, const char* content) {
+	struct Client* client = getClient(fd);
+	if (client) {
+		memset(client->reserved[index], 0, MAXPATH);
+		strcpy(client->reserved[index], content);
+		return 1;
+	}
+	else return -1;
+}
+
+const char* getReserved(int fd, int index) {
+	struct Client* client = getClient(fd);
+	if (client) return client->reserved[index];
+	else return NULL;
+}
+
 void clearDataConn(int fd) {
 	struct Client* p = getClientHead();
 	while (p->next) {

@@ -17,9 +17,6 @@
 #include <stdio.h>
 
 char rootPath[MAXPATH] = "FTPFile";
-char userPath[MAXPATH] = "/";
-
-char file2Rename[MAXPATH];
 
 int readBuf(int sockfd, void* buf) {
 	int readLen;
@@ -69,19 +66,37 @@ int writeFile(int fd, FILE* file) {
 	return 1;
 }
 
+int writeString(int fd, const char* string) {
+	int dataConnfd = getDataConnfd(fd);
+	int len = strlen(string);
+	int writeLen;
+	int p = 0;
+	while (p < len) {
+		writeLen = write(dataConnfd, string, len);
+		if (writeLen < 0) {
+			printf("Error write(): %s(%d)\n", strerror(errno), errno);
+			// close(sockfd);
+			return -1;
+ 		} 
+		else p += writeLen;
+	}
+	return p;
+}
+
 int copyFile(const char* oPath, const char* nPath) {
 	printf("%s %s\r\n", oPath, nPath);
 	FILE* infile;
 	FILE* outfile;
+	if (isDir(oPath) || isDir(nPath)) return -1; // 如果是文件夹则返回错误
 	infile = fopen(oPath, "rb");
+	if (!infile) return -1;
 	outfile = fopen(nPath, "wb");
-	if (!infile || !outfile) return -1;
+	if (!outfile) return -1;
 	unsigned char fileBuf[MAXBUF];
 	int len = 0;
 	while ((len = fread(fileBuf, sizeof(unsigned char), MAXBUF, infile))) {
 		fwrite(fileBuf, sizeof(unsigned char), len, outfile);
 	}
-	printf("len: %d\r\n", len);
 	fclose(infile);
 	fclose(outfile);
 	return 1;
@@ -359,7 +374,6 @@ char* getFormatPath(char* formatPath, const char* path) {
 }
 
 int removeAll(const char* path) {
-	printf("Debug Info: path 2 remove: %s\r\n", path);
 	DIR* dir;
 	DIR* dirin;
 	struct dirent* dirp;
@@ -384,6 +398,23 @@ int removeAll(const char* path) {
 		rmdir(path);
 		closedir(dir);
 		return 1;
+	}
+}
+
+char* listDir(char* fileList, const char* path) {
+	memset(fileList, 0, MAXBUF);
+	DIR* dir;
+	struct dirent* dirp;
+
+	if (!(dir = opendir(path))) return fileList;
+	else {
+		while ((dirp = readdir(dir))) {
+			if (!strcmp(dirp->d_name, ".") || !strcmp(dirp->d_name, "..")) continue;
+			strcat(fileList, dirp->d_name);
+			strcat(fileList, "\r\n");
+		}
+		closedir(dir);
+		return fileList;
 	}
 }
 
@@ -431,7 +462,7 @@ int removeDir(int fd, const char* path) {
 	return removeAll(sRelPath);
 }
 
-int fileExist(const char* path) {
+int isFile(const char* path) {
 	FILE* file;
 	if ((file = fopen(path, "rb"))) {
 		fclose(file);
@@ -440,7 +471,7 @@ int fileExist(const char* path) {
 	else return 0;
 }
 
-int pathExist(const char* path) {
+int isDir(const char* path) {
 	DIR* dir;
 	if ((dir = opendir(path))) {
 		closedir(dir);
@@ -455,11 +486,11 @@ int renameFile(int fd, const char* oPath, const char* nPath) {
 		return -1;
 	}
 	// 将要修改的文件名已经存进file2Rename
+	const char* file2Rename = getReserved(fd, 0);
 	getServerRelPath(fd, sRelPath, nPath);
-	// return copyFile(file2Rename, sRelPath);
 	if (copyFile(file2Rename, sRelPath) != -1) {
 		remove(file2Rename);
-		memset(file2Rename, 0, MAXPATH);
+		setReserved(fd, 0, "");
 		return 1;
 	}
 	else return -1;
@@ -470,10 +501,14 @@ int setFile2Rename(int fd, const char* path) {
 	char sRelPath[MAXPATH];
 	getServerRelPath(fd, sRelPath, path);
 	printf("sRelPath: %s\r\n", sRelPath);
-	if (fileExist(sRelPath)) {
-		memset(file2Rename, 0, MAXPATH);
-		strcpy(file2Rename, sRelPath);
-		return 1;
+	if (isFile(sRelPath)) {
+		return setReserved(fd, 0, sRelPath);
 	}
 	else return -1;
+}
+
+char* getFileList(int fd, char* fileList, const char* path) {
+	char sRelPath[MAXPATH];
+	getServerRelPath(fd, sRelPath, path);
+	return listDir(fileList, sRelPath);
 }

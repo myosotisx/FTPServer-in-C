@@ -1,5 +1,5 @@
 #ifndef SERVER_UTIL_H
-    #define SERVER_UTIL_H
+#define SERVER_UTIL_H
 #endif
 
 #include <stdio.h>
@@ -46,6 +46,10 @@ int setWorkDir(int fd, char* path);
 
 void setPassword(int fd, char* password);
 
+int setReserved(int fd, int index, const char* content);
+
+const char* getReserved(int fd, int index);
+
 void printClient();
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -67,6 +71,8 @@ int readBuf(int sockfd, void* buf);
 int writeBuf(int sockfd, const void* buf, int len);
 
 int writeFile(int fd, FILE* file);
+
+int writeString(int fd, const char* string);
 
 int copyFile(const char* oPath, const char* nPath);
 
@@ -104,8 +110,12 @@ int removeDir(int fd, const char* path);
 
 int changeWorkDir(int fd, const char* path);
 
-int fileExist(const char* path);
+int isFile(const char* path);
+
+int isDir(const char* path);
 
 int setFile2Rename(int fd, const char* path);
 
 int renameFile(int fd, const char* oPath, const char* nPath);
+
+char* getFileList(int fd, char* fileList, const char* path);

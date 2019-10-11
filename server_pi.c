@@ -150,18 +150,6 @@ int handleRETR(int fd, char* param) {
                 // response with 425
                 return response(fd, 425);
             }
-            setClientTransfer(fd, 1);
-            if (writeFile(fd, file) == -1) {
-                closeDataConn(fd);
-                setClientTransfer(fd, 0);
-                fclose(file);
-                // response with 426
-                return response(fd, 426);
-            }
-            closeDataConn(fd);
-            setClientTransfer(fd, 0);
-            fclose(file);
-            return response(fd, 226);
         }
         else if (getDataMode(fd) == 1) {
             // PASV mode
@@ -170,21 +158,21 @@ int handleRETR(int fd, char* param) {
                 // response with 425
                 return response(fd, 425);
             }
-            setClientTransfer(fd, 1);
-            if (writeFile(fd, file) == -1) {
-                closeDataConn(fd);
-                setClientTransfer(fd, 0);
-                fclose(file);
-                // response with 426
-                return response(fd, 426);
-            }
-            closeDataConn(fd);
-            setClientTransfer(fd, 0);
-            fclose(file); 
-            return response(fd, 226);
         }
         // response with 425
         else return response(fd, 425);
+        setClientTransfer(fd, 1);
+        if (writeFile(fd, file) == -1) {
+            closeDataConn(fd);
+            setClientTransfer(fd, 0);
+            fclose(file);
+            // response with 426
+            return response(fd, 426);
+        }
+        closeDataConn(fd);
+        setClientTransfer(fd, 0);
+        fclose(file); 
+        return response(fd, 226);
     }
     else {
         // response with 451
@@ -264,6 +252,37 @@ int handleRNTO(int fd, char* param) {
     }
 }
 
+int handleLIST(int fd, char* param) {
+    sprintf(response150, "150 Connection setup.\r\n");
+    // response with 150
+    if (response(fd, 150) == -1) return -1;
+    if (getDataMode(fd) == 0) {
+        if (setupDataConn(fd) == -1) {
+            // response with 425
+            return response(fd, 425);
+        }
+    }
+    else if (getDataMode(fd) == 1) {
+        if (getDataConnfd(fd) == -1 || getDataListenfd(fd) == -1) {
+            // response with 425
+            return response(fd, 425);
+        }
+    }
+    // response with 425
+    else return response(fd, 425);
+    
+    char fileList[MAXBUF];
+    getFileList(fd, fileList, param);
+    if (writeString(fd, fileList) == -1) {
+        closeDataConn(fd);
+        // response with 426
+        return response(fd, 426);
+    }
+    closeDataConn(fd);
+    // response with 226
+    return response(fd, 226);
+}
+
 int validCmd(char* cmd) {
     if (strcmp(cmd, "USER")
         && strcmp(cmd, "PASS")
@@ -289,6 +308,7 @@ int cmdMapper(int fd, char* cmd, char* param) {
     else if (!strcmp(cmd, "RMD")) return handleRMD(fd, param);
     else if (!strcmp(cmd, "RNFR")) return handleRNFR(fd, param);
     else if (!strcmp(cmd, "RNTO")) return handleRNTO(fd, param);
+    else if (!strcmp(cmd, "LIST")) return handleLIST(fd, param);
 	else {
 		// response with 500
 		return response(fd, 500);
