@@ -21,7 +21,7 @@ int connCnt = 0;
 
 char reqBuf[MAXBUF];
 
-struct fd_set fds;
+fd_set fds;
 struct timeval tv;
 
 const char promptClientListen[] = "Server starts listening at port: %d.\r\n";

@@ -93,7 +93,9 @@ void sendFile(void* _fd) {
         int readLen, writeLen;
         int dataConnfd = getDataConnfd(fd);
         while ((readLen = fread(fileBuf, sizeof(unsigned char), MAXBUF, file))) {
-            if ((writeLen = writeBuf(dataConnfd, fileBuf, readLen)) == -1) break;
+            if ((writeLen = writeBuf(dataConnfd, fileBuf, readLen)) == -1) {
+                break;
+            }
         }
         closeDataConn(fd);
         // response with 426
@@ -137,15 +139,12 @@ void recvFile(void* _fd) {
 
     if (conn) {
         unsigned char fileBuf[MAXBUF];
-        long long totLen = 0;
         int readLen;
         int dataConnfd = getDataConnfd(fd);
         while ((readLen = read(dataConnfd, fileBuf, MAXBUF))) {
             if (readLen == -1) break;
-            totLen += readLen;
             fwrite(fileBuf, sizeof(unsigned char), readLen, file);
         }
-        printf("totLen is: %lld\r\n", totLen);
         closeDataConn(fd);
         // response with 426
         if (readLen == -1) res = response(fd, 426);
@@ -154,6 +153,51 @@ void recvFile(void* _fd) {
     }
     fclose(file);
 	setClientState(fd, res);
+}
+
+void sendFileList(void* _fd) {
+    int fd = *(int*)_fd;
+    const char* param = getReserved(fd, 1);
+    int mode = getDataMode(fd);
+    int conn = 0;
+    int res;
+
+    if (mode == 0) {
+        // PORT mode
+        // 等待客户端开启监听，timeout为1s
+        sleep(1);
+        if (setupDataConn(fd, 1) == -1) {
+            // response with 425
+            res = response(fd, 425);
+        }
+        else conn = 1;
+    }
+    else if (mode == 1) {
+        // PASV mode
+        // 等待客户端建立连接，timeout为1s
+        sleep(1);
+        if (getDataConnfd(fd) == -1 || getDataListenfd(fd) == -1) {
+            // response with 425
+            res = response(fd, 425);
+        }
+        else conn = 1;
+    }
+    // response with 425
+    else res = response(fd, 425);
+
+    if (conn) {
+        char fileList[MAXBUF];
+        getFileList(fd, fileList, param);
+        printf("fileList:\r\n%s", fileList);
+        int dataConnfd = getDataConnfd(fd);
+        int writeLen = writeBuf(dataConnfd, fileList, strlen(fileList));
+        closeDataConn(fd);
+        // response with 426
+        if (writeLen == -1) res = response(fd, 426);
+        // response with 226
+        else res = response(fd, 226);
+    }
+    setClientState(fd, res);
 }
 
 int handleUSER(int fd, char* param) {
@@ -356,31 +400,10 @@ int handleLIST(int fd, char* param) {
     sprintf(response150, "150 Connection setup.\r\n");
     // response with 150
     if (response(fd, 150) == -1) return -1;
-    if (getDataMode(fd) == 0) {
-        if (setupDataConn(fd, 1) == -1) {
-            // response with 425
-            return response(fd, 425);
-        }
-    }
-    else if (getDataMode(fd) == 1) {
-        if (getDataConnfd(fd) == -1 || getDataListenfd(fd) == -1) {
-            // response with 425
-            return response(fd, 425);
-        }
-    }
-    // response with 425
-    else return response(fd, 425);
-
-    char fileList[MAXBUF];
-    getFileList(fd, fileList, param);
-    if (writeString(fd, fileList) == -1) {
-        closeDataConn(fd);
-        // response with 426
-        return response(fd, 426);
-    }
-    closeDataConn(fd);
-    // response with 226
-    return response(fd, 226);
+    setReserved(fd, 1, param);
+    pthread_t transThread;
+    pthread_create(&transThread, NULL, (void*)sendFileList, &fd);
+    return 2;
 }
 
 int cmdMapper(int fd, char* cmd, char* param) {

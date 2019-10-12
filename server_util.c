@@ -22,7 +22,8 @@ int readBuf(int sockfd, void* buf) {
 	int readLen;
 	int p = 0, bufp = 0;
 	while (!bufp) {
-		readLen = read(sockfd, buf+bufp, MAXBUF-1-bufp);
+		// readLen = read(sockfd, buf+bufp, MAXBUF-1-bufp);
+		readLen = recv(sockfd, buf+bufp, MAXBUF-1-bufp, 0);
 		if (readLen < 0) {
 			// 传输错误或关闭连接
 			printf("Error read(): %s(%d)\n", strerror(errno), errno);
@@ -42,18 +43,25 @@ int readBuf(int sockfd, void* buf) {
 }
 
 int writeBuf(int sockfd, const void* buf, int len) {
-	int writeLen;
-	int p = 0;
-	while (p < len) {
-		writeLen = write(sockfd, buf, len);
-		if (writeLen < 0) {
+	// int writeLen;
+	int sendLen;
+	int bufp = 0;
+	while (bufp < len) {
+		// sendLen = write(sockfd, buf, len);
+		// 不接收Broken pipe信号，防止进程意外退出
+		#ifndef __OSX__
+			sendLen = send(sockfd, buf+bufp, len-bufp, MSG_NOSIGNAL);
+		#else
+			sendLen = send(sockfd, buf+bufp, len-bufp, SO_NOSIGPIPE);
+		#endif
+		if (sendLen < 0) {
 			printf("Error write(): %s(%d)\n", strerror(errno), errno);
 			// close(sockfd);
 			return -1;
  		} 
-		else p += writeLen;
+		else bufp += sendLen;
 	}
-	return p;
+	return bufp;
 }
 
 int writeString(int fd, const char* string) {
@@ -118,6 +126,13 @@ int setupListen(char* ipAddr, int port, int opt) {
 	if (opt) {
 		setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&opt, sizeof(opt));
 	}
+	// 不接收Broken pipe信号，防止进程意外退出
+	int set = 1;
+	#ifndef __OSX__
+		setsockopt(listenfd, SOL_SOCKET, MSG_NOSIGNAL, (const void*)&set, sizeof(set));
+	#else
+		setsockopt(listenfd, SOL_SOCKET, SO_NOSIGPIPE, (const void*)&set, sizeof(set));
+	#endif
 
 	if (bind(listenfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 		printf("Error bind(): %s(%d)\n", strerror(errno), errno);
@@ -213,6 +228,13 @@ int setupDataConn(int fd, int opt) {
 	if (opt) {
 		setsockopt(dataConnfd, SOL_SOCKET, SO_REUSEADDR, (const void*)&opt, sizeof(opt));
 	}
+	// 不接收Broken pipe信号，防止进程意外退出
+	int set = 1;
+	#ifndef __OSX__
+		setsockopt(dataConnfd, SOL_SOCKET, MSG_NOSIGNAL, (const void*)&set, sizeof(set));
+	#else
+		setsockopt(dataConnfd, SOL_SOCKET, SO_NOSIGPIPE, (const void*)&set, sizeof(set));
+	#endif
 
 	if (bind(dataConnfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
 		printf("Error bind(): %s(%d)\n", strerror(errno), errno);
@@ -236,7 +258,6 @@ int setupDataConn(int fd, int opt) {
 		printf("Error setDataConnfd()!\r\n");
 		return -1;
 	}
-
 	return 1;
 }
 
@@ -402,21 +423,34 @@ int removeAll(const char* path) {
 	}
 }
 
-char* listDir(char* fileList, const char* path) {
+char* listDir(char* fileList, const char* path, const char* param) {
+	char cmd[256];
+	char tmp[MAXLINE];
+	char c;
+	int p = 0;
+	int len;
 	memset(fileList, 0, MAXBUF);
-	DIR* dir;
-	struct dirent* dirp;
+	memset(cmd, 0, 256);
+	strcpy(cmd, "cd ");
+	strcat(cmd, path);
+	strcat(cmd, "; ls ");
+	strcat(cmd, param);
+	printf("cmd: %s\r\n", cmd);
 
-	if (!(dir = opendir(path))) return fileList;
-	else {
-		while ((dirp = readdir(dir))) {
-			if (!strcmp(dirp->d_name, ".") || !strcmp(dirp->d_name, "..")) continue;
-			strcat(fileList, dirp->d_name);
-			strcat(fileList, "\r\n");
+	FILE* pipe = popen(cmd, "r");
+	if (!pipe) return NULL;
+
+	while (fgets(tmp, MAXLINE, pipe)) {
+		len = strlen(tmp);
+		if (tmp[len-1] == '\n') {
+			tmp[len-1] = '\r';
+			tmp[len] = '\n';
+			tmp[len+1] = 0;
 		}
-		closedir(dir);
-		return fileList;
+		strcat(fileList, tmp);
 	}
+	pclose(pipe);
+	return fileList;
 }
 
 int makeDir(int fd, const char* path) {
@@ -511,5 +545,5 @@ int setFile2Rename(int fd, const char* path) {
 char* getFileList(int fd, char* fileList, const char* path) {
 	char sRelPath[MAXPATH];
 	getServerRelPath(fd, sRelPath, path);
-	return listDir(fileList, sRelPath);
+	return listDir(fileList, sRelPath, "-l");
 }

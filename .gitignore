@@ -1,6 +1,5 @@
 *.o
 client*
 user*
-makefile
 
 FTPFile

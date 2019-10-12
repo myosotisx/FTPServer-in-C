@@ -3,9 +3,13 @@
 
 #include <stdio.h>
 
+#define __OSX__
+
 #define BACKLOG 10
 #define MAXBUF 8192
 #define MAXPATH 1024
+#define MAXLINE 1024
+#define MAXCMD 1024
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -71,9 +75,9 @@ struct Client* getClientHead();
 
 const char* getResponseByCode(int code);
 
-int enterPassiveMode(int userfd, char* ipAddr, int* port);
+int enterPassiveMode(int fd, char* ipAddr, int* port);
 
-int enterPortMode(int userfd, char* ipAddr, int port);
+int enterPortMode(int fd, char* ipAddr, int port);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
