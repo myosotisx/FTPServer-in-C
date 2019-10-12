@@ -99,7 +99,7 @@ int isFile(const char* path);
 
 int isDir(const char* path);
 
-unsigned int getFileSize(FILE* file);
+long long getFileSize(FILE* file);
 
 int copyFile(const char* oPath, const char* nPath);
 

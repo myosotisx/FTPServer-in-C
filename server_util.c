@@ -98,8 +98,8 @@ int isDir(const char* path) {
 	else return 0;
 }
 
-unsigned int getFileSize(FILE* file) {
-	unsigned int size;
+long long getFileSize(FILE* file) {
+	long long size;
 	fseek(file, 0, SEEK_END);
 	size = ftell(file);
 	fseek(file, 0, SEEK_SET);
@@ -140,7 +140,6 @@ int removeAll(const char* path) {
 			strcpy(pathname, path);
 			strcat(pathname, "/");
 			strcat(pathname, dirp->d_name);
-			printf("d_name: %s\r\n", dirp->d_name);
 			if ((dirin = opendir(pathname))) {
 				removeAll(pathname);
 				closedir(dirin);

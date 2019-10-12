@@ -259,7 +259,7 @@ int handleRETR(int fd, char* param) {
     
     FILE* file = fopen(path, "rb");
     if (file) {
-        sprintf(response150, "150 Opening BINARY mode data connection for %s (%u bytes).\r\n", param, getFileSize(file));
+        sprintf(response150, "150 Opening BINARY mode data connection for %s (%lld bytes).\r\n", param, getFileSize(file));
         // response with 150
         if (response(fd, 150) == -1) {
             fclose(file);
@@ -326,7 +326,7 @@ int handleCWD(int fd, char* param) {
     if (changeWorkDir(fd, param) != -1) {
         char formatPath[MAXPATH];
         getFormatPath(formatPath, getWorkDir(fd));
-        sprintf(response250, "250 OK. Current directory is %s\r\n", formatPath);
+        sprintf(response250, "250 OK. Current directory is \"%s\"\r\n", formatPath);
         // response with 250
         return response(fd, 250);
     }
