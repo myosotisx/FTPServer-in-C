@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 int listenfd;
-int listenPort = 57301;
+int listenPort = 21;
 int connCnt = 0;
 char reqBuf[MAXBUF];
 fd_set fds;

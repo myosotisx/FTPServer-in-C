@@ -216,7 +216,7 @@ int handleSYST(int fd) {
 
 int handleTYPE(int fd, char* param) {
     if (!strcmp(param, "I")) {
-        sprintf(response200, "200 TYPE set to I.\r\n");
+        sprintf(response200, "200 Type set to I.\r\n");
         // response with 200
         return response(fd, 200);
     }

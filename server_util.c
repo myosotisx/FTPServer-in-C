@@ -313,7 +313,7 @@ int setupDataConn(int fd, int opt) {
 
 	memset(&addr, 0, sizeof(addr));
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(57300);
+	addr.sin_port = htons(20);
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	// 设置端口复用
