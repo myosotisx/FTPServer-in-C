@@ -60,6 +60,34 @@ int enterPortMode(int fd, char* ipAddr, int port) {
 	}
 }
 
+void setPort(const char* arg) {
+	int _port;
+	if ((_port = atoi(arg)) && _port > 0) {
+		listenPort = _port;
+		printf(promptPortAssign, listenPort);
+	}
+	else {
+		printf(errorPortAssign, listenPort);
+	}
+}
+
+void setRoot(const char* arg) {
+	if (isDir(arg)) {
+		setRootPath(arg);
+		printf(promptRootAssign, getRootPath());
+	}
+	else {
+		printf(errorRootAssign, getRootPath());
+	}
+}
+
+void handleOptions(int argc, char** argv) {
+	for (int i = 1;i < argc;i++) {
+		if (!strcmp(argv[i], "-port")) setPort(argv[i+1]);
+		else if (!strcmp(argv[i], "-root")) setRoot(argv[i+1]);
+	}
+}
+
 struct Client* deleteClient(int fd) {
 	struct Client* client = getClient(fd);
 	
@@ -219,6 +247,7 @@ int process() {
 }
 
 int main(int argc, char **argv) {
+	handleOptions(argc, argv);
 	return process();
 }
 

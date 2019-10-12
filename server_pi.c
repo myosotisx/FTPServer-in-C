@@ -164,7 +164,6 @@ void sendFileList(void* _fd) {
     if (conn) {
         char fileList[MAXBUF];
         getFileList(fd, fileList, param);
-        printf("fileList:\r\n%s", fileList);
         int dataConnfd = getDataConnfd(fd);
         int writeLen = writeBuf(dataConnfd, fileList, strlen(fileList));
         closeDataConn(fd);
@@ -216,6 +215,7 @@ int handleSYST(int fd) {
 
 int handleTYPE(int fd, char* param) {
     if (!strcmp(param, "I")) {
+        memset(response200, 0, MAXRES);
         sprintf(response200, "200 Type set to I.\r\n");
         // response with 200
         return response(fd, 200);
@@ -230,6 +230,7 @@ int handlePORT(int fd, char* param) {
     parseIpAddrNPort(param, ipAddr, &port);
     // response with 425
     if (enterPortMode(fd, ipAddr, port) == -1) return response(fd, 425);
+    memset(response200, 0, MAXRES);
     sprintf(response200, "200 PORT command sccessful.\r\n");
     // response with 200
     if (response(fd, 200) == -1) return -1;
@@ -245,6 +246,7 @@ int handlePASV(int fd) {
         p1 = port/256;
         p2 = port%256;
         strReplace(ipAddr, '.', ',');
+        memset(response227, 0, MAXRES);
         sprintf(response227, "227 Entering Passive Mode (%s,%d,%d)\r\n", ipAddr, p1, p2);
         // response with 227
         return response(fd, 227);
@@ -259,6 +261,7 @@ int handleRETR(int fd, char* param) {
     
     FILE* file = fopen(path, "rb");
     if (file) {
+        memset(response150, 0, MAXRES);
         sprintf(response150, "150 Opening BINARY mode data connection for %s (%lld bytes).\r\n", param, getFileSize(file));
         // response with 150
         if (response(fd, 150) == -1) {
@@ -283,6 +286,7 @@ int handleSTOR(int fd, char* param) {
 
     FILE* file = fopen(path, "wb");
     if (file) {
+        memset(response150, 0, MAXRES);
         sprintf(response150, "150 Opening BINARY mode data connection.\r\n");
         // response with 150
         if (response(fd, 150) == -1) {
@@ -303,6 +307,7 @@ int handleSTOR(int fd, char* param) {
 int handlePWD(int fd) {
     char formatPath[MAXPATH];
     getFormatPath(formatPath, getWorkDir(fd));
+    memset(response257, 0, MAXRES);
     sprintf(response257, "257 \"%s\" is your current location.\r\n", formatPath);
     // response with 257
     return response(fd, 257);
@@ -312,6 +317,7 @@ int handleMKD(int fd, char* param) {
     if (makeDir(fd, param) != -1) {
         char formatPath[MAXPATH];
         getFormatPath(formatPath, param);
+        memset(response257, 0, MAXRES);
         sprintf(response257, "257 \"%s\" : The directory was successfully created.\r\n", formatPath);
         // response with 257
         return response(fd, 257);
@@ -326,6 +332,7 @@ int handleCWD(int fd, char* param) {
     if (changeWorkDir(fd, param) != -1) {
         char formatPath[MAXPATH];
         getFormatPath(formatPath, getWorkDir(fd));
+        memset(response250, 0, MAXRES);
         sprintf(response250, "250 OK. Current directory is \"%s\"\r\n", formatPath);
         // response with 250
         return response(fd, 250);
@@ -338,6 +345,7 @@ int handleCWD(int fd, char* param) {
 
 int handleRMD(int fd, char* param) {
     if (removeDir(fd, param) != -1) {
+        memset(response250, 0, MAXRES);
         sprintf(response250, "250 The directory was successfully removed.\r\n");
         // response with 250
         return response(fd, 250);
@@ -362,6 +370,7 @@ int handleRNFR(int fd, char* param) {
 
 int handleRNTO(int fd, char* param) {
     if (renameFile(fd, "", param) != -1) {
+        memset(response250, 0, MAXRES);
         sprintf(response250, "250 File successfully renamed or moved.\r\n");
         // response with 250
         return response(fd, 250);
@@ -373,6 +382,7 @@ int handleRNTO(int fd, char* param) {
 }
 
 int handleLIST(int fd, char* param) {
+    memset(response150, 0, MAXRES);
     sprintf(response150, "150 Connection setup.\r\n");
     // response with 150
     if (response(fd, 150) == -1) return -1;

@@ -11,7 +11,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-char rootPath[MAXPATH] = "FTPFile"; // FTP服务器根目录
+char rootPath[MAXPATH] = "/tmp"; // FTP服务器根目录
 
 void strReplace(char* str, char oldc, char newc) {
 	int len = strlen(str);
@@ -78,6 +78,16 @@ char* getFormatPath(char* formatPath, const char* path) {
 		else formatPath[p++] = path[i];
 	}
 	return formatPath;
+}
+
+const char* getRootPath() {
+	return rootPath;
+}
+
+int setRootPath(const char* nRootPath) {
+	memset(rootPath, 0, MAXPATH);
+	strcpy(rootPath, nRootPath);
+	return 1;
 }
 
 int isFile(const char* path) {
@@ -164,7 +174,6 @@ char* listDir(char* fileList, const char* path, const char* param) {
 	strcat(cmd, path);
 	strcat(cmd, "; ls ");
 	strcat(cmd, param);
-	printf("cmd: %s\r\n", cmd);
 
 	FILE* pipe = popen(cmd, "r");
 	if (!pipe) return NULL;

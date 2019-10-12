@@ -95,6 +95,10 @@ char* getFormatPath(char* formatPath, const char* path);
 
 // 文件处理工具
 
+const char* getRootPath();
+
+int setRootPath(const char* nRootPath);
+
 int isFile(const char* path);
 
 int isDir(const char* path);
