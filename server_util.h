@@ -8,12 +8,14 @@
 #define BACKLOG 10
 #define MAXBUF 8192
 #define MAXPATH 1024
-#define MAXLINE 1024
+#define MAXLINE 4096
 #define MAXCMD 1024
+#define MAXPARAM 4096
+#define MAXRES 1024
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// 允许服务器自定义用户信息
+// 允许开发者自定义用户信息
 
 enum State;
 
@@ -81,29 +83,41 @@ int enterPortMode(int fd, char* ipAddr, int port);
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// 字符串操作工具
+
+void strReplace(char* str, char oldc, char newc);
+
+void getCmdNParam(char* request, char* cmd, char* param);
+
+void parseIpAddrNPort(char* param, char* ipAddr, int* port);
+
+char* getFormatPath(char* formatPath, const char* path);
+
+// 文件处理工具
+
+int isFile(const char* path);
+
+int isDir(const char* path);
+
+unsigned int getFileSize(FILE* file);
+
+int copyFile(const char* oPath, const char* nPath);
+
+int removeAll(const char* path);
+
+char* listDir(char* fileList, const char* path, const char* param);
+
+// socket工具
+
 int readBuf(int sockfd, void* buf);
 
 int writeBuf(int sockfd, const void* buf, int len);
 
-int writeString(int fd, const char* string);
-
-int copyFile(const char* oPath, const char* nPath);
-
-unsigned int getFileSize(FILE* file);
-
-int setupListen(char* ipAddr, int port, int opt);
-
-void getCmdNParam(char* request, char* cmd, char* param);
-
-char* getFilePath(int fd, char* path, char* fileName);
+int receive(int fd, char* reqBuf, char* cmd, char* param);
 
 int response(int fd, int code);
 
-int receiveFromClient(int fd, char* reqBuf, char* cmd, char* param);
-
-void strReplace(char* str, char oldc, char newc);
-
-void parseIpAddrNPort(char* param, char* ipAddr, int* port);
+int setupListen(char* ipAddr, int port, int opt);
 
 int acceptNewConn(int listenfd);
 
@@ -111,7 +125,9 @@ int setupDataConn(int fd, int opt);
 
 void closeDataConn(int fd);
 
-char* getFormatPath(char* formatPath, const char* path);
+// 处理Client请求工具
+
+char* getFilePath(int fd, char* path, char* fileName);
 
 char* getClientAbsPath(int fd, char* cAbsPath, const char* path);
 
@@ -119,13 +135,9 @@ char* getServerRelPath(int fd, char* sRelPath, const char* path);
 
 int makeDir(int fd, const char* path);
 
-int removeDir(int fd, const char* path);
-
 int changeWorkDir(int fd, const char* path);
 
-int isFile(const char* path);
-
-int isDir(const char* path);
+int removeDir(int fd, const char* path);
 
 int setFile2Rename(int fd, const char* path);
 
