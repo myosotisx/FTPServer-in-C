@@ -96,7 +96,11 @@ struct Client* deleteClient(int fd) {
 	close(client->dataListenfd);
 	close(fd);
 	FD_CLR(fd, &fds);
-
+	if (client->transThread) {
+		pthread_cancel(client->transThread);
+		printf("Debug Info: close data transfer thread for client (fd: %d)\r\n", fd);
+		client->transThread = 0;
+	}
 	struct Client* prev = destroyClient(client);
 	if (!prev->next) tail = prev;
 	connCnt--;
@@ -165,10 +169,11 @@ void processClientConn() {
 		if (FD_ISSET(p->fd, &fds)) {
 			char cmd[MAXCMD];
 			char param[MAXPARAM];
-			if(receive(p->fd, reqBuf, cmd, param) != -1) {
+			int res;
+			if((res = receive(p->fd, reqBuf, cmd, param)) == 1) {
 				cmdMapper(p->fd, cmd, param);
 			}
-			else {
+			else if (res == -1) {
 				setClientState(p->fd, ERRORQUIT);
 			}
 		}

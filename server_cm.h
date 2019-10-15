@@ -18,7 +18,8 @@ struct Client {
 	char workDir[MAXPATH];
 	char reserved[10][MAXPATH];
 	void* reservedPtr[10];
-	int bytesRecv;
+	long long bytesRecv;
+	pthread_t transThread;
 	struct Client* prev;
 	struct Client* next;
 };

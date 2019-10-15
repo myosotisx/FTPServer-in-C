@@ -8,8 +8,8 @@
 
 struct Client* initClient(struct Client* client, int fd, struct Client* prev, struct Client* next) {
 	memset(client, 0, sizeof(struct Client));
-	// memset(client->ipAddr, 0, 32);
-	// memset(client->workDir, 0, MAXPATH);
+	memset(client->ipAddr, 0, 32);
+	memset(client->workDir, 0, MAXPATH);
 	strcpy(client->workDir, "/");
 	client->state = WAITUSER;
 	client->fd = fd;
@@ -18,6 +18,7 @@ struct Client* initClient(struct Client* client, int fd, struct Client* prev, st
 	client->port = -1;
 	client->mode = 0;
 	client->bytesRecv = 0;
+	client->transThread = 0;
 	client->prev = prev;
 	client->next = next;
 	return client;
@@ -185,6 +186,22 @@ int setPassword(int fd, const char* password) {
 	if (p) {
 		memset(p->password, 0, 32);
 		strcpy(p->password, password);
+		return 1;
+	}
+	else return -1;
+}
+
+pthread_t getTransThread(int fd) {
+	struct Client* p = getClient(fd);
+	if (p) return p->transThread;
+	else return 0;
+}
+
+int setTransThread(int fd, pthread_t transThread) {
+	struct Client* p = getClient(fd);
+	if (p) {
+		p->transThread = transThread;
+		printf("Debug Info in CM: client (fd: %d) transThread set to %lu\r\n", fd, transThread);
 		return 1;
 	}
 	else return -1;

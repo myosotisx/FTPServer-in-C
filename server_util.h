@@ -2,8 +2,10 @@
 #define SERVER_UTIL_H
 
 #include <stdio.h>
+#include <pthread.h>
 
 #define __OSX__
+#define __DEBUG__
 
 #define BACKLOG 10
 #define MAXBUF 8192
@@ -60,6 +62,10 @@ int getIpAddrNPort(int fd, char* ipAddr, int* port);
 int setIpAddrNPort(int fd, const char* ipAddr, int port);
 
 int setPassword(int fd, const char* password);
+
+pthread_t getTransThread(int fd);
+
+int setTransThread(int fd, pthread_t transThread);
 
 const char* getReserved(int fd, int index);
 

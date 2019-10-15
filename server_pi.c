@@ -74,13 +74,15 @@ void sendFile(void* _fd) {
             }
         }
         closeDataConn(fd);
+        pthread_testcancel();
         // response with 426
         if (writeLen == -1) res = response(fd, 426);
         // response with 226
         else res = response(fd, 226);
     }
     fclose(file);
-	setClientState(fd, res);	
+    setTransThread(fd, 0);
+	setClientState(fd, res);
 }
 
 void recvFile(void* _fd) {
@@ -122,12 +124,14 @@ void recvFile(void* _fd) {
             fwrite(fileBuf, sizeof(unsigned char), readLen, file);
         }
         closeDataConn(fd);
+        pthread_testcancel();
         // response with 426
         if (readLen == -1) res = response(fd, 426);
         // response with 226
         else res = response(fd, 226);
     }
     fclose(file);
+    setTransThread(fd, 0);
 	setClientState(fd, res);
 }
 
@@ -168,10 +172,12 @@ void sendFileList(void* _fd) {
         int writeLen = writeBuf(dataConnfd, fileList, strlen(fileList));
         closeDataConn(fd);
         // response with 426
+        pthread_testcancel();
         if (writeLen == -1) res = response(fd, 426);
         // response with 226
         else res = response(fd, 226);
     }
+    setTransThread(fd, 0);
     setClientState(fd, res);
 }
 
@@ -270,8 +276,12 @@ int handleRETR(int fd, char* param) {
         }
         setReservedPtr(fd, 0, file);
         pthread_t transThread;
-        pthread_create(&transThread, NULL, (void*)sendFile, &fd);
-        return 2;
+        if (pthread_create(&transThread, NULL, (void*)sendFile, &fd) != -1
+            && setTransThread(fd, transThread) != -1) {
+            return 2;
+        }
+        // response with 425
+        else return response(fd, 425);
     }
     else {
         // response with 451
@@ -295,8 +305,13 @@ int handleSTOR(int fd, char* param) {
         }
         setReservedPtr(fd, 1, file);
         pthread_t transThread;
-        pthread_create(&transThread, NULL, (void*)recvFile, &fd);
-        return 2;
+        if (pthread_create(&transThread, NULL, (void*)recvFile, &fd) != -1
+            && setTransThread(fd, transThread) != -1) {
+            return 2;
+        }
+        // response with 425
+        else return response(fd, 425);
+        
     }
     else {
         // response with 451
@@ -388,15 +403,46 @@ int handleLIST(int fd, char* param) {
     if (response(fd, 150) == -1) return -1;
     setReserved(fd, 1, param);
     pthread_t transThread;
-    pthread_create(&transThread, NULL, (void*)sendFileList, &fd);
-    return 2;
+    if (pthread_create(&transThread, NULL, (void*)sendFileList, &fd) != -1
+        && setTransThread(fd, transThread) != -1) {
+        return 2;
+    }
+    // response with 425
+    else return response(fd, 425);
+}
+
+int validCmd(char* cmd) {
+    if (!strcmp(cmd, "QUIT")
+    || !strcmp(cmd, "ABOR")
+    || !strcmp(cmd, "USER")
+    || !strcmp(cmd, "PASS")
+    || !strcmp(cmd, "RNTO")
+    || !strcmp(cmd, "SYST")
+    || !strcmp(cmd, "TYPE")
+    || !strcmp(cmd, "PORT")
+    || !strcmp(cmd, "PASV")
+    || !strcmp(cmd, "RETR")
+    || !strcmp(cmd, "STOR")
+    || !strcmp(cmd, "PWD")
+    || !strcmp(cmd, "MKD")
+    || !strcmp(cmd, "CWD")
+    || !strcmp(cmd, "RMD")
+    || !strcmp(cmd, "RNFR")
+    || !strcmp(cmd, "LIST")) return 1;
+    else return 0;
 }
 
 int cmdMapper(int fd, char* cmd, char* param) {
     printf("Debug Info in PI: cmd is %s and param is %s\r\n", cmd, param);
 	// mapping
     int res = getClientState(fd);
-    if (!strcmp(cmd, "QUIT")) res = handleQUIT(fd);
+    if (!validCmd(cmd)) {
+        int oRes = res;
+        // response with 500
+        if (oRes != 2) res = response(fd, 500);
+        if (res != -1) res = oRes;
+    }
+    else if (!strcmp(cmd, "QUIT")) res = handleQUIT(fd);
     else if (!strcmp(cmd, "ABOR")) res = handleABOR(fd);
     else if (res == 3) {
         // 请求用户名
@@ -432,10 +478,10 @@ int cmdMapper(int fd, char* cmd, char* param) {
     else if (!strcmp(cmd, "RMD")) res = handleRMD(fd, param);
     else if (!strcmp(cmd, "RNFR")) res = handleRNFR(fd, param);
     else if (!strcmp(cmd, "LIST")) res = handleLIST(fd, param);
-	else {
+	/*else {
 		// response with 500
 		res = response(fd, 500);
-	}
+	}*/
     setClientState(fd, res);
     return res;
 }

@@ -11,7 +11,11 @@
 #include <string.h>
 #include <stdlib.h>
 
-char rootPath[MAXPATH] = "/tmp"; // FTP服务器根目录
+#ifndef __DEBUG__
+	char rootPath[MAXPATH] = "/tmp"; // FTP服务器根目录
+#else 
+	char rootPath[MAXPATH] = "FTPFile";
+#endif
 
 void strReplace(char* str, char oldc, char newc) {
 	int len = strlen(str);
@@ -163,29 +167,32 @@ int removeAll(const char* path) {
 }
 
 char* listDir(char* fileList, const char* path, const char* param) {
-	char cmd[256];
+	char cmd[MAXCMD];
 	char tmp[MAXLINE];
 	char c;
 	int p = 0;
-	int len;
+	int lineLen;
+	int totLen = 0;
 	memset(fileList, 0, MAXBUF);
-	memset(cmd, 0, 256);
+	memset(cmd, 0, MAXCMD);
 	strcpy(cmd, "cd ");
 	strcat(cmd, path);
 	strcat(cmd, "; ls ");
 	strcat(cmd, param);
-
+	printf("cmd: %s\r\n", cmd);
 	FILE* pipe = popen(cmd, "r");
 	if (!pipe) return NULL;
 
 	while (fgets(tmp, MAXLINE, pipe)) {
-		len = strlen(tmp);
-		if (tmp[len-1] == '\n') {
-			tmp[len-1] = '\r';
-			tmp[len] = '\n';
-			tmp[len+1] = 0;
+		lineLen = strlen(tmp);
+		if (tmp[lineLen-1] == '\n' && tmp[lineLen-2] != '\r') {
+			tmp[lineLen-1] = '\r';
+			tmp[lineLen] = '\n';
+			tmp[lineLen+1] = 0;
+			lineLen += 1;
 		}
-		strcat(fileList, tmp);
+		if ((totLen += lineLen) > MAXBUF) break; // 此处限制了获取列表的最大长度
+		else strcat(fileList, tmp);
 	}
 	pclose(pipe);
 	return fileList;
@@ -239,6 +246,7 @@ int receive(int fd, char* reqBuf, char* cmd, char* param) {
 		getCmdNParam(reqBuf, cmd, param);
 		return 1;
 	}
+	// else if (len == 0) return 0;
 	else return -1;
 }
 
