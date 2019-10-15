@@ -139,6 +139,44 @@ int copyFile(const char* oPath, const char* nPath) {
 	return 1;
 }
 
+int moveFile(const char* oPath, const char* nPath, char* error) {
+	char cmd[MAXCMD];
+	char tmp[MAXLINE];
+	char _error[MAXLINE];
+	int lineLen;
+	int totLen = 0;
+	memset(_error, 0, MAXLINE);
+	memset(cmd, 0, MAXCMD);
+	strcpy(cmd, "mv ");
+	strcat(cmd, oPath);
+	strcat(cmd, " ");
+	strcat(cmd, nPath);
+	strcat(cmd, " 2>&1");
+	printf("cmd: %s\r\n", cmd);
+	FILE* pipe = popen(cmd, "r");
+	if (!pipe) return -1;
+
+	while (fgets(tmp, MAXLINE, pipe)) {
+		lineLen = strlen(tmp);
+		if (tmp[lineLen-1] == '\n' && tmp[lineLen-2] != '\r') {
+			tmp[lineLen-1] = '\r';
+			tmp[lineLen] = '\n';
+			tmp[lineLen+1] = 0;
+			lineLen += 1;
+		}
+		if ((totLen += lineLen) > MAXLINE) break; // 此处限制了获取列表的最大长度
+		else strcat(_error, tmp);
+	}
+	if (totLen) {
+		memset(error, 0, MAXLINE);
+		char* p = strrchr(_error, ':');
+		if (p) strcpy(error, p+2);
+		printf("Error is %s", error);
+		return -1;
+	}
+	else return 1;
+}
+
 int removeAll(const char* path) {
 	DIR* dir;
 	DIR* dirin;
@@ -169,8 +207,6 @@ int removeAll(const char* path) {
 char* listDir(char* fileList, const char* path, const char* param) {
 	char cmd[MAXCMD];
 	char tmp[MAXLINE];
-	char c;
-	int p = 0;
 	int lineLen;
 	int totLen = 0;
 	memset(fileList, 0, MAXBUF);
@@ -499,7 +535,7 @@ int removeDir(int fd, const char* path) {
 int setFile2Rename(int fd, const char* path) {
 	char sRelPath[MAXPATH];
 	getServerRelPath(fd, sRelPath, path);
-	if (isFile(sRelPath)) {
+	if (isFile(sRelPath) || isDir(sRelPath)) {
 		return setReserved(fd, 0, sRelPath);
 	}
 	else return -1;
@@ -513,12 +549,17 @@ int renameFile(int fd, const char* oPath, const char* nPath) {
 	// 将要修改的文件名已经存进file2Rename
 	const char* file2Rename = getReserved(fd, 0);
 	getServerRelPath(fd, sRelPath, nPath);
-	if (copyFile(file2Rename, sRelPath) != -1) {
-		remove(file2Rename);
+	if (rename(file2Rename, sRelPath) != -1) {
+		// remove(file2Rename);
 		setReserved(fd, 0, "");
 		return 1;
 	}
 	else return -1;
+	/*if (moveFile(file2Rename, sRelPath, error) != -1) {
+		setReserved(fd, 0, "");
+		return 1;
+	}
+	else return -1;*/
 }
 
 char* getFileList(int fd, char* fileList, const char* path) {

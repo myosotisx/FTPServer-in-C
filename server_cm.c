@@ -201,7 +201,6 @@ int setTransThread(int fd, pthread_t transThread) {
 	struct Client* p = getClient(fd);
 	if (p) {
 		p->transThread = transThread;
-		printf("Debug Info in CM: client (fd: %d) transThread set to %lu\r\n", fd, transThread);
 		return 1;
 	}
 	else return -1;

@@ -113,6 +113,8 @@ long long getFileSize(FILE* file);
 
 int copyFile(const char* oPath, const char* nPath);
 
+int moveFile(const char* oPath, const char* nPath, char* error);
+
 int removeAll(const char* path);
 
 char* listDir(char* fileList, const char* path, const char* param);

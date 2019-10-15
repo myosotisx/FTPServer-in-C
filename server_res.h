@@ -23,6 +23,6 @@ char response500[MAXRES] = "500 Syntax error!\r\n";
 char response503[MAXRES] = "503 Bad sequence of commands.\r\n";
 char response504[MAXRES] = "504 Parameters not supported!\r\n";
 char response530[MAXRES] = "530 Username is unacceptable (only support \"anonymous\" now)!\r\n";
-char response550[MAXRES] = "550 Directory operation fail! Please check the parameter.\r\n";
+char response550[MAXRES];
 
 #endif

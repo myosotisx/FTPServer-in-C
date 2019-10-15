@@ -98,7 +98,6 @@ struct Client* deleteClient(int fd) {
 	FD_CLR(fd, &fds);
 	if (client->transThread) {
 		pthread_cancel(client->transThread);
-		printf("Debug Info: close data transfer thread for client (fd: %d)\r\n", fd);
 		client->transThread = 0;
 	}
 	struct Client* prev = destroyClient(client);

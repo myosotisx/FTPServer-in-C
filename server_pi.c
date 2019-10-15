@@ -378,6 +378,8 @@ int handleRNFR(int fd, char* param) {
         else return -1;
     }
     else {
+        memset(response550, 0, MAXRES);
+        sprintf(response550, "550 Sorry, but file/directory doesn't exist.\r\n");
         // response with 550
         return response(fd, 550);
     }
@@ -386,11 +388,13 @@ int handleRNFR(int fd, char* param) {
 int handleRNTO(int fd, char* param) {
     if (renameFile(fd, "", param) != -1) {
         memset(response250, 0, MAXRES);
-        sprintf(response250, "250 File successfully renamed or moved.\r\n");
+        sprintf(response250, "250 Successfully renamed or moved file/directory.\r\n");
         // response with 250
         return response(fd, 250);
     }
     else {
+        memset(response550, 0, MAXRES);
+        sprintf(response550, "550 Fail to rename file/directory.\r\n");
         // response with 550
         return response(fd, 550);
     }
