@@ -139,7 +139,7 @@ void closeDataConn(int fd);
 
 // 处理Client请求工具
 
-char* getFilePath(int fd, char* path, char* fileName);
+char* getFilePath(int fd, char* filePath, const char* path);
 
 char* getClientAbsPath(int fd, char* cAbsPath, const char* path);
 

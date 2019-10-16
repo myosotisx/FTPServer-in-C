@@ -262,10 +262,10 @@ int handlePASV(int fd) {
 }
 
 int handleRETR(int fd, char* param) {
-    char path[MAXPATH];
-    getFilePath(fd, path, param);
+    char filePath[MAXPATH];
+    getFilePath(fd, filePath, param);
     
-    FILE* file = fopen(path, "rb");
+    FILE* file = fopen(filePath, "rb");
     if (file) {
         memset(response150, 0, MAXRES);
         sprintf(response150, "150 Opening BINARY mode data connection for %s (%lld bytes).\r\n", param, getFileSize(file));
@@ -291,10 +291,10 @@ int handleRETR(int fd, char* param) {
 }
 
 int handleSTOR(int fd, char* param) {
-    char path[MAXPATH];
-    getFilePath(fd, path, param);
+    char filePath[MAXPATH];
+    getFilePath(fd, filePath, param);
 
-    FILE* file = fopen(path, "wb");
+    FILE* file = fopen(filePath, "wb");
     if (file) {
         memset(response150, 0, MAXRES);
         sprintf(response150, "150 Opening BINARY mode data connection.\r\n");
@@ -338,7 +338,9 @@ int handleMKD(int fd, char* param) {
         return response(fd, 257);
     }
     else {
-        // response with 550
+        memset(response550, 0, MAXRES);
+        sprintf(response550, "550 Fail to create directory!\r\n");
+        // response with 550  
         return response(fd, 550);
     }
 }
@@ -353,6 +355,8 @@ int handleCWD(int fd, char* param) {
         return response(fd, 250);
     }
     else {
+        memset(response550, 0, MAXRES);
+        sprintf(response550, "550 Fail to change directory!\r\n");
         // response with 550
         return response(fd, 550);
     }
@@ -366,6 +370,8 @@ int handleRMD(int fd, char* param) {
         return response(fd, 250);
     }
     else {
+        memset(response550, 0, MAXRES);
+        sprintf(response550, "550 Fail to remove directory!\r\n");
         // response with 550
         return response(fd, 550);
     }

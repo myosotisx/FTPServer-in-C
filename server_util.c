@@ -386,7 +386,7 @@ int setupDataConn(int fd, int opt) {
 		return -1;
 	}
 
-	memset(&addr, 0, sizeof(addrClient));
+	memset(&addrClient, 0, sizeof(addrClient));
 	addrClient.sin_family = AF_INET;
 	addrClient.sin_port = htons(port);
 	if (inet_pton(AF_INET, ipAddr, &addrClient.sin_addr) <= 0) {
@@ -414,13 +414,15 @@ void closeDataConn(int fd) {
 	close(dataListenfd);
 }
 
-char* getFilePath(int fd, char* path, char* fileName) {
-	memset(path, 0, MAXPATH);
+char* getFilePath(int fd, char* filePath, const char* path) {
+	/*memset(path, 0, MAXPATH);
 	strcpy(path, rootPath);
 	strcat(path, getWorkDir(fd));
 	strcat(path, "/");
 	strcat(path, fileName);
-	return path;
+	return path;*/
+	getServerRelPath(fd, filePath, path);
+	return filePath;
 }
 
 char* getClientAbsPath(int fd, char* cAbsPath, const char* path) {
@@ -489,7 +491,7 @@ char* getServerRelPath(int fd, char* sRelPath, const char* path) {
 }
 
 int makeDir(int fd, const char* path) {
-	char realPath[MAXPATH];
+	/*char realPath[MAXPATH];
 	memset(realPath, 0, MAXPATH);
 	strcpy(realPath, rootPath);
 	if (path[0] == '/') {
@@ -500,18 +502,22 @@ int makeDir(int fd, const char* path) {
 		if (realPath[strlen(realPath)-1] != '/') strcat(realPath, "/");
 		strcat(realPath, path);
 	}
-	return mkdir(realPath, S_IRWXU|S_IRWXG|S_IROTH|S_IXOTH);
+	return mkdir(realPath, S_IRWXU|S_IRWXG|S_IROTH|S_IXOTH);*/
+	char sRelPath[MAXPATH];
+	getServerRelPath(fd, sRelPath, path);
+	printf("sRelPath in makeDir: %s\r\n", sRelPath);
+	return mkdir(sRelPath, S_IRWXU|S_IRWXG|S_IROTH|S_IXOTH);
 }
 
 int changeWorkDir(int fd, const char* path) {
 	DIR* dir;
-	char nWorkDir[MAXPATH];
-	char sRelPath[MAXPATH]; // 相对可执行程序的路径
-	getClientAbsPath(fd, nWorkDir, path);
+	char cAbsPath[MAXPATH];
+	char sRelPath[MAXPATH];
+	getClientAbsPath(fd, cAbsPath, path);
 	memset(sRelPath, 0, MAXPATH);
 	strcpy(sRelPath, rootPath);
-	strcat(sRelPath, nWorkDir);
-	if ((dir = opendir(sRelPath)) && setWorkDir(fd, nWorkDir) != -1) {
+	strcat(sRelPath, cAbsPath);
+	if ((dir = opendir(sRelPath)) && setWorkDir(fd, cAbsPath) != -1) {
 		closedir(dir);
 		return 1;
 	}
@@ -519,16 +525,16 @@ int changeWorkDir(int fd, const char* path) {
 }
 
 int removeDir(int fd, const char* path) {
-	char cAbsPath[MAXPATH];
-	char sRelPath[MAXPATH]; // 相对可执行程序的路径
-	getClientAbsPath(fd, cAbsPath, path);
-	if (!strcmp(cAbsPath, "/")) {
+	char sRelPath[MAXPATH];
+	char _rootPath[MAXPATH];
+	memset(_rootPath, 0, MAXPATH);
+	strcpy(_rootPath, rootPath);
+	strcat(_rootPath, "/");
+	getServerRelPath(fd, sRelPath, path);
+	if (!strcmp(sRelPath, _rootPath)) {
 		// 禁止用户删除根目录
 		return -1;
 	}
-	memset(sRelPath, 0, MAXPATH);
-	strcpy(sRelPath, rootPath);
-	strcat(sRelPath, cAbsPath);
 	return removeAll(sRelPath);
 }
 
@@ -555,11 +561,6 @@ int renameFile(int fd, const char* oPath, const char* nPath) {
 		return 1;
 	}
 	else return -1;
-	/*if (moveFile(file2Rename, sRelPath, error) != -1) {
-		setReserved(fd, 0, "");
-		return 1;
-	}
-	else return -1;*/
 }
 
 char* getFileList(int fd, char* fileList, const char* path) {
