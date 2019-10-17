@@ -75,6 +75,10 @@ void* getReservedPtr(int fd, int index);
 
 int setReservedPtr(int fd, int index, void* ptr);
 
+long getFileSP(int fd);
+
+int setFileSP(int fd, long fileSP);
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // 服务器层实现

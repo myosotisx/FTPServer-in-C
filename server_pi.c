@@ -4,6 +4,7 @@
 
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 #include <pthread.h>
 
 const char* getResponse(int code) {
@@ -26,6 +27,7 @@ const char* getResponse(int code) {
         case 426: return response426;
         case 451: return response451;
         case 500: return response500;
+        case 502: return response502;
         case 503: return response503;
         case 504: return response504;
         case 530: return response530;
@@ -274,6 +276,11 @@ int handleRETR(int fd, char* param) {
             fclose(file);
             return -1;
         }
+        // 移动文件指针
+        long fileSP;
+        if ((fileSP = getFileSP(fd)) != -1) {
+            fseek(file, fileSP, 0);
+        }
         setReservedPtr(fd, 0, file);
         pthread_t transThread;
         if (pthread_create(&transThread, NULL, (void*)sendFile, &fd) != -1
@@ -379,6 +386,8 @@ int handleRMD(int fd, char* param) {
 
 int handleRNFR(int fd, char* param) {
     if (setFile2Rename(fd, param) != -1) {
+        memset(response350, 0, MAXRES);
+        sprintf(response350, "350 RNFR accepted - file exists, ready for destination.\r\n");
         // response with 350
         if (response(fd, 350) != -1) return 5;
         else return -1;
@@ -421,6 +430,48 @@ int handleLIST(int fd, char* param) {
     else return response(fd, 425);
 }
 
+int handleREST(int fd, char* param) {
+    long fileSP = atoll(param);
+    if (setFileSP(fd, fileSP) != -1) {
+        memset(response350, 0, MAXRES);
+        sprintf(response350, "350 REST accepted - ready to transfer from start point %ld\r\n", fileSP);
+        // response with 350
+        /*if (response(fd, 350) != -1) return 6;
+        else return -1;*/
+        return response(fd, 350);
+    }
+    // response with 502
+    else return response(fd, 502);
+}
+
+int handleAPPE(int fd, char* param) {
+    char filePath[MAXPATH];
+    getFilePath(fd, filePath, param);
+
+    FILE* file = fopen(filePath, "ab"); // 以追加方式打开
+    if (file) {
+        memset(response150, 0, MAXRES);
+        sprintf(response150, "150 Opening BINARY mode data connection.\r\n");
+        // response with 150
+        if (response(fd, 150) == -1) {
+            fclose(file);
+            return -1;
+        }
+        setReservedPtr(fd, 1, file);
+        pthread_t transThread;
+        if (pthread_create(&transThread, NULL, (void*)recvFile, &fd) != -1
+            && setTransThread(fd, transThread) != -1) {
+            return 2;
+        }
+        // response with 425
+        else return response(fd, 425);
+    }
+    else {
+        // response with 451
+        return response(fd, 451);
+    }
+}
+
 int validCmd(char* cmd) {
     if (!strcmp(cmd, "QUIT")
     || !strcmp(cmd, "ABOR")
@@ -438,7 +489,10 @@ int validCmd(char* cmd) {
     || !strcmp(cmd, "CWD")
     || !strcmp(cmd, "RMD")
     || !strcmp(cmd, "RNFR")
-    || !strcmp(cmd, "LIST")) return 1;
+    || !strcmp(cmd, "LIST")
+    || !strcmp(cmd, "REST")
+    || !strcmp(cmd, "APPE")
+    ) return 1;
     else return 0;
 }
 
@@ -476,6 +530,11 @@ int cmdMapper(int fd, char* cmd, char* param) {
         // response with 503
         else res = response(fd, 503);
     }
+    /*else if (res == 6) {
+        if (!strcmp(cmd, "RETR")) res = handleRETR(fd, param);
+        // response with 503
+        else res = response(fd, 503);
+    }*/
     else if (!strcmp(cmd, "SYST")) res = handleSYST(fd);
     else if (!strcmp(cmd, "TYPE")) res = handleTYPE(fd, param);
     else if (!strcmp(cmd, "PORT")) res = handlePORT(fd, param);
@@ -488,6 +547,8 @@ int cmdMapper(int fd, char* cmd, char* param) {
     else if (!strcmp(cmd, "RMD")) res = handleRMD(fd, param);
     else if (!strcmp(cmd, "RNFR")) res = handleRNFR(fd, param);
     else if (!strcmp(cmd, "LIST")) res = handleLIST(fd, param);
+    else if (!strcmp(cmd, "REST")) res = handleREST(fd, param);
+    else if (!strcmp(cmd, "APPE")) res = handleAPPE(fd, param);
 	/*else {
 		// response with 500
 		res = response(fd, 500);

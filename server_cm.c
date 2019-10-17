@@ -18,6 +18,7 @@ struct Client* initClient(struct Client* client, int fd, struct Client* prev, st
 	client->port = -1;
 	client->mode = 0;
 	client->bytesRecv = 0;
+	client->fileSP = 0;
 	client->transThread = 0;
 	client->prev = prev;
 	client->next = next;
@@ -232,6 +233,21 @@ int setReservedPtr(int fd, int index, void* ptr) {
 	struct Client* p = getClient(fd);
 	if (p) {
 		p->reservedPtr[index] = ptr;
+		return 1;
+	}
+	else return -1;
+}
+
+long getFileSP(int fd) {
+	struct Client* p = getClient(fd);
+	if (p) return p->fileSP;
+	else return -1;
+}
+
+int setFileSP(int fd, long fileSP) {
+	struct Client* p = getClient(fd);
+	if (p) {
+		p->fileSP = fileSP;
 		return 1;
 	}
 	else return -1;

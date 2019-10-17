@@ -3,7 +3,7 @@
 
 #include "server_util.h"
 
-enum State { ERRORQUIT = -1, NORMQUIT = 0, NORM = 1, TRANSFER = 2, WAITUSER = 3, WAITPASS = 4, WAITRNTO = 5 };
+enum State { ERRORQUIT = -1, NORMQUIT = 0, NORM = 1, TRANSFER = 2, WAITUSER = 3, WAITPASS = 4, WAITRNTO = 5, WAITTRANS = 6 };
 
 struct Client {
 	enum State state;
@@ -16,9 +16,10 @@ struct Client {
 	char username[32];
 	char password[32];
 	char workDir[MAXPATH];
-	char reserved[10][MAXPATH];
-	void* reservedPtr[10];
-	long long bytesRecv;
+	char reserved[10][MAXPATH]; // 备用信息 [0]: file2Rename
+	void* reservedPtr[10]; // 备用指针 [0]: file2Retrive [1]: file2Store
+	long fileSP;
+	long bytesRecv;
 	pthread_t transThread;
 	struct Client* prev;
 	struct Client* next;
