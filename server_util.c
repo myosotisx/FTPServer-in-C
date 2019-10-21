@@ -206,18 +206,30 @@ int removeAll(const char* path) {
 
 char* listDir(char* fileList, const char* path, const char* param) {
 	char cmd[MAXCMD];
-	char tmp[MAXLINE];
-	int lineLen;
-	int totLen = 0;
-	memset(fileList, 0, MAXBUF);
-	memset(cmd, 0, MAXCMD);
-	strcpy(cmd, "cd ");
-	strcat(cmd, path);
-	strcat(cmd, "; ls ");
-	strcat(cmd, param);
-	printf("cmd: %s\r\n", cmd);
-	FILE* pipe = popen(cmd, "r");
-	if (!pipe) return NULL;
+    char tmp[MAXLINE];
+    int lineLen;
+    int totLen = 0;
+    memset(fileList, 0, MAXBUF);
+
+    memset(cmd, 0, MAXCMD);
+    strcpy(cmd, "cd ");
+    strcat(cmd, path);
+    strcat(cmd, " 2>&1");
+    FILE* pipe = popen(cmd, "r");
+    if (!pipe) return NULL;
+    if (fgets(tmp, MAXLINE, pipe)) {
+        pclose(pipe);
+        return NULL;
+    }
+    pclose(pipe);
+
+    memset(cmd, 0, MAXCMD);
+    strcpy(cmd, "cd ");
+    strcat(cmd, path);
+    strcat(cmd, "; ls ");
+    strcat(cmd, param);
+    pipe = popen(cmd, "r");
+    if (!pipe) return NULL;
 
 	while (fgets(tmp, MAXLINE, pipe)) {
 		lineLen = strlen(tmp);
@@ -275,7 +287,15 @@ int writeBuf(int sockfd, const void* buf, int len) {
 
 int receive(int fd, char* reqBuf, char* cmd, char* param) {
 	int len = readBuf(fd, reqBuf);
-	printf("Debug Info: New receive from client (fd: %d). Receive length is %d.\r\n", fd, len);
+	int i = 0;
+	while (i < len) {
+		if (reqBuf[i] == '\n') {
+			reqBuf[i+1] = 0;
+			break;
+		}
+		i++;
+	}
+	printf("Debug Info: New receive from client (fd: %d). Receive length is %d.\r\n", fd, i+1);
 	if (len > 0) {
 		reqBuf[len] = 0;
 		printf("%s", reqBuf);

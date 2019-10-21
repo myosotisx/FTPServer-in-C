@@ -75,6 +75,7 @@ void sendFile(void* _fd) {
                 break;
             }
         }
+        fclose(file);
         closeDataConn(fd);
         pthread_testcancel();
         // response with 426
@@ -82,7 +83,9 @@ void sendFile(void* _fd) {
         // response with 226
         else res = response(fd, 226);
     }
-    fclose(file);
+    else {
+        fclose(file);
+    }
     setTransThread(fd, 0);
 	setClientState(fd, res);
 }
@@ -125,6 +128,7 @@ void recvFile(void* _fd) {
             if (readLen == -1) break;
             fwrite(fileBuf, sizeof(unsigned char), readLen, file);
         }
+        fclose(file);
         closeDataConn(fd);
         pthread_testcancel();
         // response with 426
@@ -132,7 +136,9 @@ void recvFile(void* _fd) {
         // response with 226
         else res = response(fd, 226);
     }
-    fclose(file);
+    else {
+        fclose(file);
+    }
     setTransThread(fd, 0);
 	setClientState(fd, res);
 }
